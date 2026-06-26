@@ -16,6 +16,14 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     minify: false,
+    rolldownOptions: {
+      output: {
+        generatedCode: {
+          preset: "es2015"
+        },
+        keepNames: true
+      }
+    }
   },
   define: {
     __BROWSER_TYPE__: JSON.stringify(browserType),
