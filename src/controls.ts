@@ -43,7 +43,9 @@ export function initControls(): boolean {
   const input: HTMLInputElement = document.querySelector("#audioExtOffsetInput")
     || inputContainer.appendChild(document.createElement("input"));
   input.id = "audioExtOffsetInput";
-  input.type = "number";
+  input.type = "text";
+  input.inputMode = "numeric";
+  input.pattern = "\\d*(\\.\\d+)?";
   input.value = `${w.__audioExtOffset}`;
   input.className = "kat:bg-neutral-900 kat:hover:bg-neutral-600 kat:focus-visible:outline-4 kat:focus-visible:-outline-offset-4 kat:focus-visible:outline-orange-500 kat:focus-visible:bg-neutral-600 kat:active:bg-neutral-500 kat:text-sm kat:text-white kat:rounded kat:h-24";
   input.style.padding = "6px";
@@ -92,7 +94,7 @@ export function initControls(): boolean {
     });
     input.addEventListener("change", (e) => {
       e.preventDefault();
-      const num = input.valueAsNumber;
+      const num = Number(input.value);
       w.__audioExtSetOffset(isNaN(num) ? 0 : num);
       saveCurrentOffsetToCache();
     }, true);

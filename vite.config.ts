@@ -54,10 +54,7 @@ function makeManifest() {
     name: pkg.displayName,
     version: pkg.version,
     description: pkg.description,
-    permissions: [
-      "storage",
-      "webRequest",
-    ],
+    permissions: [],
     host_permissions: ["*://*.crunchyroll.com/*"],
     content_scripts: [
       {
