@@ -168,7 +168,18 @@ setInterval(() => {
 }, 250);
 // endregion
 
-// region Insert control
+// region Insert Controls
+window.addEventListener("load", () => {
+  const id = setInterval(() => {
+    if (document.querySelector("video")) {
+      if (initControls()) {
+        clearInterval(id);
+        console.log("[audio ext] controls injected");
+      }
+    }
+  }, 1000);
+});
+
 let controlStack = document.querySelector(`[data-testid="bottom-right-controls-stack"]`);
 if (!controlStack) {
   const val = setInterval(() => {
@@ -179,6 +190,10 @@ if (!controlStack) {
   }, 500)
 }
 
+/**
+ * All the className values were stripped out of Crunchy :)
+ * Button SVG taken from Google Material Icons: https://openfontlicense.org/
+ */
 function initControls(): boolean {
   if (!controlStack) return false;
   if (!w.__audioExtWrapper || !w.__audioExtPlayer) return false;
@@ -191,13 +206,11 @@ function initControls(): boolean {
   const button: HTMLDivElement = document.querySelector("#audioExtControl")
     || container.appendChild(document.createElement("div"));
   button.id = "audioExtControl";
-  // Google Material Icons
   button.innerHTML = "<svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\" viewBox=\"0 -960 960 960\" width=\"24px\" fill=\"#e3e3e3\"><path d=\"M240-80 80-240l160-160 57 56-64 64h494l-63-64 56-56 160 160L720-80l-57-56 64-64H233l63 64-56 56Zm200-360v-480h80v480h-80Zm-160-80v-320h80v320h-80Zm320 0v-320h80v320h-80ZM120-620v-120h80v120h-80Zm640 0v-120h80v120h-80Z\"/></svg>"
   button.role = "button";
 
   const menu: HTMLDivElement = document.querySelector("#audioExtControlMenu") || container.appendChild(document.createElement("div"));
   menu.id = "audioExtControlMenu";
-  // yoinked this from the gear menu
   menu.className = "kat:inline-flex kat:flex-col kat:absolute kat:z-[1001] kat:bg-neutral-700 kat:rounded-lg kat:shadow-lg kat:outline-none kat:w-max kat:overflow-hidden focus-visible:kat:outline-2 focus-visible:kat:outline-offset-2 focus-visible:kat:outline-white/50 kat:rounded-br-none kat:bottom-full kat:right-0";
   menu.style.visibility = "hidden";
   menu.style.height = "max-content";
@@ -272,15 +285,4 @@ function initControls(): boolean {
 
   return true;
 }
-
-window.addEventListener("load", () => {
-  const id = setInterval(() => {
-    if (document.querySelector("video")) {
-      if (initControls()) {
-        clearInterval(id);
-        console.log("[audio ext] controls injected");
-      }
-    }
-  }, 1000);
-});
 // endregion
