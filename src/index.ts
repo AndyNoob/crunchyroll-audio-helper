@@ -74,10 +74,7 @@ function doHijack() {
   const timer = setInterval(() => {
     const bitMovinChunk = w["webpackChunkbitmovin_player"];
     if (!bitMovinChunk) return;
-
-    captureRequire("webpackChunk_N_E");
     captureRequire("webpackChunkbitmovin_player");
-
     if (tryPatch()) {
       log("patch complete, injecting controls");
       clearInterval(timer);
@@ -92,11 +89,13 @@ doHijack();
 w.__audioExtOffset = 0;
 
 w.__audioExtSetOffset = async (offset: number) => {
+  if (w.__audioExtOffset === offset) return;
   w.__audioExtOffset = offset;
   if (!w.__audioExtWrapper || !w.__audioExtPlayer) return;
   const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
   if (!sourceBuffer) return;
   w.__audioExtWrapper.setTimestampOffset("audio/mp4", w.__audioExtOffset);
+  sourceBuffer.buffer.timestampOffset = w.__audioExtOffset;
   w.__audioExtPlayer.load(); // force the video player to error so that it reloads itself
   const video = document.querySelector("video")!;
   video.currentTime = sourceBuffer.buffer.buffered.start(0) - 1;
@@ -125,5 +124,4 @@ function tryInitControls() {
     }
   }, 1000);
 }
-
 // endregion

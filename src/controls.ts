@@ -90,10 +90,14 @@ export function initControls(): boolean {
     inputContainer.addEventListener("click", (e) => {
       e.preventDefault();
     });
-    input.addEventListener("change", () => {
-      w.__audioExtSetOffset(input.valueAsNumber);
+    input.addEventListener("change", (e) => {
+      e.preventDefault();
+      const num = input.valueAsNumber;
+      w.__audioExtSetOffset(isNaN(num) ? 0 : num);
       saveCurrentOffsetToCache();
-    });
+    }, true);
+    input.addEventListener("keydown", (e) => e.stopPropagation());
+    input.addEventListener("input", (e) => e.stopPropagation());
     inputContainer.dataset.listener = "true";
   }
 
