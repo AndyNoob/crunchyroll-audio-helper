@@ -30,8 +30,8 @@ export default defineConfig({
       outFileName: `${pkg.name}-${browserType}.zip`,
       done: () => {
         if (browserType === "chrome") {
-          const zip = new AdmZip('./dist-zip/cr-dual-subs-chrome.zip');
-          zip.extractAllTo('./dist-zip/cr-dual-subs-crhome-unzipped', true);
+          const zip = new AdmZip(`./dist-zip/${pkg.name}-chrome.zip`);
+          zip.extractAllTo(`./dist-zip/${pkg.name}-chrome-unzipped`, true);
           console.log('chrome extraction complete!');
         }
       }

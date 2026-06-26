@@ -6,6 +6,9 @@
   "author": "AndyNoob",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "build": "vite build && BROWSER=chrome vite build"
+  },
   "dependencies": {
     "webextension-polyfill": "^0.12.0"
   },
