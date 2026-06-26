@@ -8,11 +8,14 @@ const browserType = process.env["BROWSER"] ?? "firefox";
 console.log(`compiling for ${browserType}`);
 
 export default defineConfig({
+  server: {
+    open: false
+  },
   publicDir: "icons",
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    minify: false
+    minify: false,
   },
   define: {
     __BROWSER_TYPE__: JSON.stringify(browserType),

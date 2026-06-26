@@ -1,10 +1,37 @@
 const w = window as any;
 
 // region Player Hijacking
+function getSlug(url: string) {
+  return url.match(/crunchyroll\.com\/watch\/([^\/]+)/)?.[1];
+}
+
+window.navigation.addEventListener("currententrychange", (event) => {
+  const currentUrl = event.from.url;
+  const newUrl = window.navigation.currentEntry?.url;
+  const curSlug = getSlug(currentUrl!);
+  const newSlug = getSlug(newUrl!);
+  if (!newSlug || curSlug !== newSlug) {
+    console.log("[audio ext] url changed, resetting");
+    w.__audioExtPlayer = null;
+    w.__audioExtWrapper = null;
+    w["__require_webpackChunkbitmovin_player"] = null;
+    const container = document.querySelector("#audioExtContainer");
+    if (container) {
+      container.replaceChildren();
+      container.remove();
+      console.log("[audio ext] removed injected controls");
+    }
+    if (newSlug) {
+      console.log("[audio ext] re-hijacking");
+      doHijack();
+    }
+  }
+});
+
 const PLAYER_NAME = "InternalPlayer";
 const PLAYER_FUNC: string[] = ["load", "unload", "play", "pause", "seek"];
 const MSE_WRAPPER_NAME = "MSEWrapper";
-const MSE_WRAPPER_FUNC: string[] = ["addBuffer"];
+const MSE_WRAPPER_FUNC: string[] = ["addBuffer", "queueTimestampOffsetUpdate"];
 
 function captureRequire(chunkName: string) {
   const chunks = w[chunkName];
@@ -20,7 +47,7 @@ function captureRequire(chunkName: string) {
 }
 
 function tryPatch() {
-  const bitMovin = w[`__require_webpackChunkbitmovin_player`];
+  const bitMovin = w["__require_webpackChunkbitmovin_player"];
   if (!bitMovin) return false;
   return patchPlayerModule(findPlayerModule(bitMovin)!.mod)
     && patchMSEModule(findMSEModule(bitMovin)!.mod);
@@ -41,7 +68,7 @@ function patchPlayerModule(mod: any) {
     if (typeof original !== "function") continue;
 
     Player.prototype[method] = function (...args: any[]) {
-      console.log(`[audio ext] Player.${method}`, this, args);
+      console.debug(`[audio ext] Player.${method}`, args);
       w.__audioExtPlayer = this;
       return original.apply(this, args);
     };
@@ -66,7 +93,7 @@ function patchMSEModule(mod: any) {
     if (typeof original !== "function") continue;
 
     Wrapper.prototype[method] = function (...args: any[]) {
-      console.log(`[audio ext] MSEWrapper.${method}`, this, args);
+      console.debug(`[audio ext] MSEWrapper.${method}`, args);
       w.__audioExtWrapper = this;
       return original.apply(this, args);
     };
@@ -133,19 +160,28 @@ function findModuleWithKeywords(req: any, ...keywords: string[]) {
   return ret;
 }
 
-const timer = setInterval(() => {
-  const nEChunk = w["webpackChunk_N_E"];
-  const bitMovinChunk = w["webpackChunkbitmovin_player"];
-  if (!(nEChunk && bitMovinChunk)) return;
-
-  captureRequire("webpackChunk_N_E");
-  captureRequire("webpackChunkbitmovin_player");
-
-  if (tryPatch()) {
-    clearInterval(timer);
-    w["__audioExtFind"] = findModuleWithKeywords;
+function doHijack() {
+  if (!getSlug(location.href)) {
+    console.log("[audio ext] not a watch page, skipping");
+    return;
   }
-}, 50);
+  const timer = setInterval(() => {
+    const bitMovinChunk = w["webpackChunkbitmovin_player"];
+    if (!bitMovinChunk) return;
+
+    captureRequire("webpackChunk_N_E");
+    captureRequire("webpackChunkbitmovin_player");
+
+    if (tryPatch()) {
+      console.log("[audio ext] patch complete, injecting controls");
+      clearInterval(timer);
+      w["__audioExtFind"] = findModuleWithKeywords;
+      tryInitControls();
+    }
+  }, 50);
+}
+
+doHijack();
 
 w.__audioExtOffset = 0;
 
@@ -154,9 +190,15 @@ w.__audioExtSetOffset = async (offset: number) => {
   if (!w.__audioExtWrapper || !w.__audioExtPlayer) return;
   const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
   if (!sourceBuffer) return;
-  sourceBuffer.buffer.timestampOffset = w.__audioExtOffset;
-  await w.__audioExtWrapper.removeBuffer("audio/mp4");
+  console.log(sourceBuffer);
+  w.__audioExtWrapper.setTimestampOffset("audio/mp4", w.__audioExtOffset);
+  // await w.__audioExtWrapper.removeBuffer("audio/mp4");
+  // await w.__audioExtWrapper.removeBuffer("video/mp4");
   w.__audioExtPlayer.load(); // force the video player to error so that it reloads itself
+  // w.__audioExtWrapper.queueTimestampOffsetUpdate("audio/mp4", w.__audioExtOffset);
+  const video = document.querySelector("video")!;
+  video.currentTime = sourceBuffer.buffer.buffered.start(0) - 1;
+  console.log(`[audio ext] seeking to ${video.currentTime} to make buffer work`);
   console.log(`[audio ext] updated offset to ${offset}`);
 }
 
@@ -169,25 +211,26 @@ setInterval(() => {
 // endregion
 
 // region Insert Controls
-window.addEventListener("load", () => {
+function tryInitControls() {
   const id = setInterval(() => {
-    if (document.querySelector("video")) {
+    const video = document.querySelector("video");
+    if (video && video.readyState === HTMLMediaElement.HAVE_ENOUGH_DATA) {
       if (initControls()) {
         clearInterval(id);
         console.log("[audio ext] controls injected");
       }
+      const slug = getSlug(location.href)!;
+      const cache = JSON.parse(localStorage.getItem("audio-ext-delay") || "{}");
+      if (cache) {
+        if (cache[slug]) {
+          w.__audioExtSetOffset(Number(cache[slug]));
+          const input = document.querySelector("#audioExtOffsetInput");
+          if (input instanceof HTMLInputElement) input.value = `${w.__audioExtOffset}`;
+          console.log(`[audio ext] offset for ${slug} is ${w.__audioExtOffset}sec`);
+        }
+      }
     }
   }, 1000);
-});
-
-let controlStack = document.querySelector(`[data-testid="bottom-right-controls-stack"]`);
-if (!controlStack) {
-  const val = setInterval(() => {
-    controlStack = document.querySelector(`[data-testid="bottom-right-controls-stack"]`);
-    if (controlStack) {
-      clearInterval(val);
-    }
-  }, 500)
 }
 
 /**
@@ -195,6 +238,7 @@ if (!controlStack) {
  * Button SVG taken from Google Material Icons: https://openfontlicense.org/
  */
 function initControls(): boolean {
+  const controlStack = document.querySelector(`[data-testid="bottom-right-controls-stack"]`);
   if (!controlStack) return false;
   if (!w.__audioExtWrapper || !w.__audioExtPlayer) return false;
   const container: HTMLDivElement = document.querySelector("#audioExtContainer")
@@ -231,7 +275,7 @@ function initControls(): boolean {
     || inputContainer.appendChild(document.createElement("input"));
   input.id = "audioExtOffsetInput";
   input.type = "number";
-  input.value = "0";
+  input.value = `${w.__audioExtOffset}`;
   input.className = "kat:bg-neutral-900 kat:hover:bg-neutral-600 kat:focus-visible:outline-4 kat:focus-visible:-outline-offset-4 kat:focus-visible:outline-orange-500 kat:focus-visible:bg-neutral-600 kat:active:bg-neutral-500 kat:text-sm kat:text-white kat:rounded kat:h-24";
   input.style.padding = "6px";
   input.style.width = "4em";
@@ -279,10 +323,15 @@ function initControls(): boolean {
     });
     input.addEventListener("change", () => {
       w.__audioExtSetOffset(input.valueAsNumber);
+      const slug = getSlug(location.href);
+      if (!slug) return;
+      const cache = JSON.parse(localStorage.getItem("audio-ext-delay") || "{}");
+      cache[slug] = `${w.__audioExtOffset}`;
+      localStorage.setItem("audio-ext-delay", JSON.stringify(cache));
     })
     inputContainer.dataset.listener = "true";
   }
 
-  return true;
+  return !!document.querySelector("#audioExtContainer");
 }
 // endregion

@@ -3,12 +3,9 @@
   "displayName": "Crunchyroll Audio Extension",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
-  "scripts": {},
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "author": "AndyNoob",
+  "license": "MIT",
+  "type": "module",
   "dependencies": {
     "webextension-polyfill": "^0.12.0"
   },
