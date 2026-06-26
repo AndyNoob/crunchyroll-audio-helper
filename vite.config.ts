@@ -1,11 +1,11 @@
-import {defineConfig} from 'vite';
+import {defineConfig} from "vite";
 import webExtension from "vite-plugin-web-extension";
 import zipPack from "vite-plugin-zip-pack";
 import pkg from "./package.json";
 import AdmZip from "adm-zip";
 
 const browserType = process.env["BROWSER"] ?? "firefox";
-console.log(`compiling for ${browserType}`);
+console.log(`compiling v${pkg.version} for ${browserType}`);
 
 export default defineConfig({
   server: {
@@ -13,12 +13,13 @@ export default defineConfig({
   },
   publicDir: "icons",
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: true,
     minify: false,
   },
   define: {
     __BROWSER_TYPE__: JSON.stringify(browserType),
+    __VERSION__: JSON.stringify(pkg.version),
     "import.meta": {},
   },
   plugins: [

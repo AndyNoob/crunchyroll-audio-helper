@@ -1,4 +1,9 @@
 const w = window as any;
+const version = __VERSION__;
+
+function log(...obj: any) {
+  console.log(`[audio ext v${version}]`, ...obj);
+}
 
 // region Player Hijacking
 function getSlug(url: string) {
@@ -11,7 +16,7 @@ window.navigation.addEventListener("currententrychange", (event) => {
   const curSlug = getSlug(currentUrl!);
   const newSlug = getSlug(newUrl!);
   if (!newSlug || curSlug !== newSlug) {
-    console.log("[audio ext] url changed, resetting");
+    log("url changed, resetting");
     w.__audioExtPlayer = null;
     w.__audioExtWrapper = null;
     w["__require_webpackChunkbitmovin_player"] = null;
@@ -19,10 +24,10 @@ window.navigation.addEventListener("currententrychange", (event) => {
     if (container) {
       container.replaceChildren();
       container.remove();
-      console.log("[audio ext] removed injected controls");
+      log("removed injected controls");
     }
     if (newSlug) {
-      console.log("[audio ext] re-hijacking");
+      log("re-hijacking");
       doHijack();
     }
   }
@@ -41,7 +46,7 @@ function captureRequire(chunkName: string) {
     {},
     (req: any) => {
       w[`__require_${chunkName}`] = req;
-      console.log(`[audio ext] captured require on chunk ${chunkName}`);
+      log(`captured require on chunk ${chunkName}`);
     }
   ]);
 }
@@ -56,7 +61,7 @@ function tryPatch() {
 function patchPlayerModule(mod: any) {
   const Player = mod[PLAYER_NAME];
   if (!Player?.prototype) {
-    console.log("[audio ext] no prototype", Player);
+    log("no prototype", Player);
     return false;
   }
   if (Player.__audioExtPatched) return true;
@@ -74,14 +79,14 @@ function patchPlayerModule(mod: any) {
     };
   }
 
-  console.log("[audio ext] patched Player methods", Player);
+  log("patched Player methods", Player);
   return true;
 }
 
 function patchMSEModule(mod: any) {
   const Wrapper = mod[MSE_WRAPPER_NAME];
   if (!Wrapper?.prototype) {
-    console.log("[audio ext] no prototype", Wrapper);
+    log("no prototype", Wrapper);
     return false;
   }
   if (Wrapper.__audioExtPatched) return true;
@@ -99,7 +104,7 @@ function patchMSEModule(mod: any) {
     };
   }
 
-  console.log("[audio ext] patched Wrapper methods", Wrapper);
+  log("patched Wrapper methods", Wrapper);
   return true;
 }
 
@@ -109,7 +114,7 @@ function findPlayerModule(req: any) {
     try {
       mod = req(id);
     } catch {
-      console.warn(`[dual sub webpack] module ${id} errored when being required`);
+      console.warn(`[audio ext] module ${id} errored when being required`);
       continue;
     }
     if (mod?.[PLAYER_NAME])
@@ -124,7 +129,7 @@ function findMSEModule(req: any) {
     try {
       mod = req(id);
     } catch {
-      console.warn(`[dual sub webpack] module ${id} errored when being required`);
+      console.warn(`[audio ext] module ${id} errored when being required`);
       continue;
     }
     if (mod?.[MSE_WRAPPER_NAME])
@@ -162,7 +167,7 @@ function findModuleWithKeywords(req: any, ...keywords: string[]) {
 
 function doHijack() {
   if (!getSlug(location.href)) {
-    console.log("[audio ext] not a watch page, skipping");
+    log("not a watch page, skipping");
     return;
   }
   const timer = setInterval(() => {
@@ -173,7 +178,7 @@ function doHijack() {
     captureRequire("webpackChunkbitmovin_player");
 
     if (tryPatch()) {
-      console.log("[audio ext] patch complete, injecting controls");
+      log("patch complete, injecting controls");
       clearInterval(timer);
       w["__audioExtFind"] = findModuleWithKeywords;
       tryInitControls();
@@ -190,16 +195,12 @@ w.__audioExtSetOffset = async (offset: number) => {
   if (!w.__audioExtWrapper || !w.__audioExtPlayer) return;
   const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
   if (!sourceBuffer) return;
-  console.log(sourceBuffer);
   w.__audioExtWrapper.setTimestampOffset("audio/mp4", w.__audioExtOffset);
-  // await w.__audioExtWrapper.removeBuffer("audio/mp4");
-  // await w.__audioExtWrapper.removeBuffer("video/mp4");
   w.__audioExtPlayer.load(); // force the video player to error so that it reloads itself
-  // w.__audioExtWrapper.queueTimestampOffsetUpdate("audio/mp4", w.__audioExtOffset);
   const video = document.querySelector("video")!;
   video.currentTime = sourceBuffer.buffer.buffered.start(0) - 1;
-  console.log(`[audio ext] seeking to ${video.currentTime} to make buffer work`);
-  console.log(`[audio ext] updated offset to ${offset}`);
+  log(`seeking to ${video.currentTime} to make buffer work`);
+  log(`updated offset to ${offset}`);
 }
 
 setInterval(() => {
@@ -217,7 +218,7 @@ function tryInitControls() {
     if (video && video.readyState === HTMLMediaElement.HAVE_ENOUGH_DATA) {
       if (initControls()) {
         clearInterval(id);
-        console.log("[audio ext] controls injected");
+        log("controls injected");
       }
       const slug = getSlug(location.href)!;
       const cache = JSON.parse(localStorage.getItem("audio-ext-delay") || "{}");
@@ -226,7 +227,7 @@ function tryInitControls() {
           w.__audioExtSetOffset(Number(cache[slug]));
           const input = document.querySelector("#audioExtOffsetInput");
           if (input instanceof HTMLInputElement) input.value = `${w.__audioExtOffset}`;
-          console.log(`[audio ext] offset for ${slug} is ${w.__audioExtOffset}sec`);
+          log(`offset for ${slug} is ${w.__audioExtOffset}sec`);
         }
       }
     }
