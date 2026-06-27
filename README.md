@@ -24,7 +24,7 @@ prototype of those two classes, the extension can capture the active instances.
 After captures, the extension exposes the following in the `window` object:
 
 | Variable                                | Type                             | Description                                                                                                                                                                              |
-|-----------------------------------------|:---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|:----------------------------------------|:---------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `__require_webpackChunkbitmovin_player` | `(moduleId: number) => any`      | the require function for the `webpackChunkbitmovin_player` chunk                                                                                                                         |
 | `__audioExtOffset`                      | `number`                         | the current offset in seconds (editing this directly doesn't trigger the player reload)                                                                                                  |
 | `__audioExtSetOffset`                   | `async (offset: number) => void` | function to set the current `audioExtOffset`, triggers a player reload and saves the new value into `localStorage` under the key `audio-ext-delay` using the slug of the current episode |
