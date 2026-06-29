@@ -1,4 +1,3 @@
-
 // ==UserScript==
 // @name          Crunchyroll Audio Helper
 // @namespace     https://github.com/AndyNoob

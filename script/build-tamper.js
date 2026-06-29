@@ -1,8 +1,7 @@
 import pkg from "../package.json" with { type: "json" };
 import {readFile, writeFile} from "node:fs/promises";
 
-const tamperMonkeyHeader = `
-// ==UserScript==
+const tamperMonkeyHeader = `// ==UserScript==
 // @name          Crunchyroll Audio Helper
 // @namespace     https://github.com/AndyNoob
 // @version       ${pkg.version}
