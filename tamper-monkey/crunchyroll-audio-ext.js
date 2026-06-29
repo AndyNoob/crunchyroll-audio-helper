@@ -1,18 +1,19 @@
 // ==UserScript==
-// @name          Crunchyroll Audio Helper
-// @namespace     https://github.com/AndyNoob
-// @version       0.0.1
-// @description   A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
-// @match         https://www.crunchyroll.com/watch/*
-// @license       MIT
-// @author        AndyNoob
-// @run-at        document-start
-// @homepageURL   https://github.com/AndyNoob/crunchyroll-audio-helper
-// @downloadURL   https://github.com/AndyNoob/crunchyroll-audio-helper/raw/main/tamper-monkey/crunchyroll-audio-ext.js
-// @updateURL     https://github.com/AndyNoob/crunchyroll-audio-helper/raw/main/tamper-monkey/crunchyroll-audio-ext.js
-// @supportURL    https://github.com/AndyNoob/crunchyroll-audio-helper/issues
+// @name           cr-audio-ext
+// @namespace      https://github.com/AndyNoob
+// @version        0.0.1
+// @author         AndyNoob
+// @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
+// @license        MIT
+// @match          https://www.crunchyroll.com/watch/*
+// @grant          none
+// @run-at         document-start
+// @downloadURL    https://raw.githubusercontent.com/AndyNoob/crunchyroll-audio-helper/refs/heads/main/tamper-monkey/crunchyroll-audio-ext.js
+// @supportURL     https://github.com/AndyNoob/crunchyroll-audio-helper/issues
+// @updateURL      https://raw.githubusercontent.com/AndyNoob/crunchyroll-audio-helper/refs/heads/main/tamper-monkey/crunchyroll-audio-ext.js
+// @source         git+https://github.com/AndyNoob/crunchyroll-audio-helper.git
+// @homepage       https://github.com/AndyNoob/crunchyroll-audio-helper
 // ==/UserScript==
-
 var _ = (function(exports) {
 	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 	//#endregion
