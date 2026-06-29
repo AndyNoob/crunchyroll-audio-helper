@@ -7,6 +7,7 @@
 // @match         https://www.crunchyroll.com/watch/*
 // @license       MIT
 // @author        AndyNoob
+// @run-at        document-start
 // @homepageURL   https://github.com/AndyNoob/crunchyroll-audio-helper
 // @downloadURL   https://github.com/AndyNoob/crunchyroll-audio-helper/raw/main/tamper-monkey/crunchyroll-audio-ext.js
 // @updateURL     https://github.com/AndyNoob/crunchyroll-audio-helper/raw/main/tamper-monkey/crunchyroll-audio-ext.js
