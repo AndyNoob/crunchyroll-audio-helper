@@ -13,6 +13,6 @@ const tamperMonkeyHeader = await generate("tampermonkey", {
 });
 
 let content = await readFile("./dist/src/index.js", "utf-8");
-content = tamperMonkeyHeader + "\n" + content;
+content = tamperMonkeyHeader + "\n\n" + content;
 const out = `./tamper-monkey/crunchyroll-audio-ext.js`;
 await writeFile(out, content);

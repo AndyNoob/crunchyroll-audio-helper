@@ -14,6 +14,7 @@
 // @source         git+https://github.com/AndyNoob/crunchyroll-audio-helper.git
 // @homepage       https://github.com/AndyNoob/crunchyroll-audio-helper
 // ==/UserScript==
+
 var _ = (function(exports) {
 	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 	//#endregion
