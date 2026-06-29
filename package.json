@@ -2,12 +2,13 @@
   "name": "cr-audio-ext",
   "displayName": "Crunchyroll Audio Extension",
   "version": "0.0.1",
-  "description": "",
+  "description": "A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.",
   "author": "AndyNoob",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "vite build && BROWSER=chrome vite build"
+    "build": "vite build && BROWSER=chrome vite build && npm run build:tamper",
+    "build:tamper": "node script/build-tamper.js"
   },
   "dependencies": {
     "webextension-polyfill": "^0.12.0"

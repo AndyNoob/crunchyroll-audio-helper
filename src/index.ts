@@ -6,6 +6,7 @@ import {loadCurrentDelayFromCache} from "./cache";
 const w = window as any;
 const version = __VERSION__;
 
+const CHUNK_NAME = "webpackChunkbitmovin_player";
 export const PLAYER_NAME = "InternalPlayer";
 export const PLAYER_FUNC: string[] = ["load", "unload", "play", "pause", "seek"];
 export const MSE_WRAPPER_NAME = "MSEWrapper";
@@ -72,9 +73,9 @@ function doHijack() {
     return;
   }
   const timer = setInterval(() => {
-    const bitMovinChunk = w["webpackChunkbitmovin_player"];
+    const bitMovinChunk = w[CHUNK_NAME];
     if (!bitMovinChunk) return;
-    captureRequire("webpackChunkbitmovin_player");
+    captureRequire(CHUNK_NAME);
     if (tryPatch()) {
       log("patch complete, injecting controls");
       clearInterval(timer);
