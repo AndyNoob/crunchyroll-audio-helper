@@ -72,6 +72,11 @@ function makeManifest() {
         }
       }
     },
+    icons: {
+      "32": "icon-32.png",
+      "64": "icon-64.png",
+      "128": "icon-128.png"
+    },
     // background: (browserType === "firefox" ? {
     //   scripts: ["src/background.js"]
     // } : {

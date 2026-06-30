@@ -8,7 +8,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build && BROWSER=chrome vite build && npm run build:tamper",
-    "build:tamper": "node script/build-tamper.js"
+    "build:tamper": "node scripts/build-tamper.js",
+    "build:icons": "node scripts/build-icons.js"
   },
   "dependencies": {
     "webextension-polyfill": "^0.12.0"
@@ -19,6 +20,8 @@
     "@types/webextension-polyfill": "^0.12.5",
     "@userscripters/generate-headers": "^3.5.0",
     "adm-zip": "^0.5.17",
+    "psd": "^3.4.0",
+    "sharp": "^0.35.2",
     "typescript": "^6.0.3",
     "vite": "^8.1.0",
     "vite-plugin-static-copy": "^3.4.0",
