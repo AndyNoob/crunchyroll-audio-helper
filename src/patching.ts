@@ -10,77 +10,59 @@ import {
 
 const w = window as any;
 
-export function patchPlayerModule(mod: any) {
-  const Player = mod[PLAYER_NAME];
-  if (!Player?.prototype) {
-    log("no prototype", Player);
+export type FunctionList = (string | [string, PatchedFunction])[];
+export type PatchedFunction = (original: Function, inst: any) => Function;
+
+export function patchModule(mod: any,
+                            clazz: string,
+                            funcList: FunctionList,
+                            assignment: (inst: any) => void) {
+  const Class = mod[clazz];
+  if (!Class?.prototype) {
+    log("no prototype", Class);
     return false;
   }
-  if (Player.__audioExtPatched) return true;
+  if (Class.__audioExtPatched) return true;
 
-  Player.__audioExtPatched = true;
+  Class.__audioExtPatched = true;
 
-  for (const method of PLAYER_FUNC) {
-    const original = Player.prototype[method];
+  for (let method of funcList) {
+    let replacement: PatchedFunction | null;
+    let name: string;
+
+    if (typeof method === "object") {
+      replacement = method[1];
+      name = method[0];
+    } else {
+      replacement = null;
+      name = method;
+    }
+    const original = Class.prototype[name];
     if (typeof original !== "function") continue;
 
-    Player.prototype[method] = function (...args: any[]) {
-      console.debug(`[audio ext] Player.${method}`, args);
-      w.__audioExtPlayer = this;
-      return original.apply(this, args);
+    Class.prototype[name] = function (...args: any[]) {
+      console.debug(`[audio ext] ${clazz}.${name}`, args);
+      assignment(this);
+      if (replacement) {
+        return replacement(original, this)(...args);
+      } else {
+        return original.apply(this, args);
+      }
     };
   }
 
-  log("patched Player methods", Player);
+  log(`patched ${clazz} methods`, Class);
   return true;
+}
+
+export function patchPlayerModule(mod: any) {
+  return patchModule(mod, PLAYER_NAME, PLAYER_FUNC, inst => w.__audioExtPlayer = inst);
 }
 
 export function patchMSEWrapperModule(mod: any) {
-  const Wrapper = mod[MSE_WRAPPER_NAME];
-  if (!Wrapper?.prototype) {
-    log("no prototype", Wrapper);
-    return false;
-  }
-  if (Wrapper.__audioExtPatched) return true;
-
-  Wrapper.__audioExtPatched = true;
-
-  for (const method of MSE_WRAPPER_FUNC) {
-    const original = Wrapper.prototype[method];
-    if (typeof original !== "function") continue;
-
-    Wrapper.prototype[method] = function (...args: any[]) {
-      console.debug(`[audio ext] MSEWrapper.${method}`, args);
-      w.__audioExtWrapper = this;
-      return original.apply(this, args);
-    };
-  }
-
-  log("patched Wrapper methods", Wrapper);
-  return true;
+  return patchModule(mod, MSE_WRAPPER_NAME, MSE_WRAPPER_FUNC, inst => w.__audioExtWrapper = inst);
 }
 
 export function patchMSERenderModule(mod: any) {
-  const Renderer = mod[MSE_RENDERER_NAME];
-  if (!Renderer?.prototype) {
-    log("no prototype", Renderer);
-    return false;
-  }
-  if (Renderer.__audioExtPatched) return true;
-
-  Renderer.__audioExtPatched = true;
-
-  for (const method of MSE_RENDERER_FUNC) {
-    const original = Renderer.prototype[method];
-    if (typeof original !== "function") continue;
-
-    Renderer.prototype[method] = function (...args: any[]) {
-      console.debug(`[audio ext] MSERenderer.${method}`, args);
-      w.__audioExtRenderer = this;
-      return original.apply(this, args);
-    };
-  }
-
-  log("patched Renderer methods", Renderer);
-  return true;
+  return patchModule(mod, MSE_RENDERER_NAME, MSE_RENDERER_FUNC, inst => w.__audioExtRenderer = inst);
 }

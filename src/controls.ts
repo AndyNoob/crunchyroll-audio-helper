@@ -1,4 +1,5 @@
 import {saveCurrentOffsetToCache} from "./cache";
+import {MAX_OFFSET} from "./index";
 
 const w = window as any;
 
@@ -38,7 +39,7 @@ export function initControls(): boolean {
   label.id = "audioExtOffsetInputLabel";
   label.htmlFor = "audioExtOffsetInput";
   label.className = "kat:text-sm kat:text-white";
-  label.textContent = "Audio Offset (seconds)"
+  label.textContent = `Audio Offset (-${MAX_OFFSET} ↔ ${MAX_OFFSET} seconds)`
 
   const input: HTMLInputElement = document.querySelector("#audioExtOffsetInput")
     || inputContainer.appendChild(document.createElement("input"));
@@ -96,6 +97,7 @@ export function initControls(): boolean {
       e.preventDefault();
       const num = Number(input.value);
       w.__audioExtSetOffset(isNaN(num) ? 0 : num);
+      input.value = w.__audioExtOffset;
       saveCurrentOffsetToCache();
     }, true);
     input.addEventListener("keydown", (e) => e.stopPropagation());

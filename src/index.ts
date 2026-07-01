@@ -1,18 +1,21 @@
-import {patchMSERenderModule, patchMSEWrapperModule, patchPlayerModule} from "./patching";
+import {type FunctionList, patchMSERenderModule, patchMSEWrapperModule, patchPlayerModule} from "./patching";
 import {findModuleWithKeywords, findMSERendererModule, findMSEWrapperModule, findPlayerModule} from "./finder";
 import {initControls} from "./controls";
 import {loadCurrentDelayFromCache} from "./cache";
+import {patchedAddToBuffer, patchTfdtOffset, segmentCache, timescaleCache} from "./buffer";
 
 const w = window as any;
 const version = __VERSION__;
 
+export const MAX_OFFSET = 8;
+
 const CHUNK_NAME = "webpackChunkbitmovin_player";
 export const PLAYER_NAME = "InternalPlayer";
-export const PLAYER_FUNC: string[] = ["load", "unload", "play", "pause", "seek"];
+export const PLAYER_FUNC: FunctionList = ["load", "unload", "play", "pause", "seek"];
 export const MSE_WRAPPER_NAME = "MSEWrapper";
-export const MSE_WRAPPER_FUNC: string[] = ["addBuffer", "queueTimestampOffsetUpdate", "addToBuffer"];
+export const MSE_WRAPPER_FUNC: FunctionList = ["addBuffer", "queueTimestampOffsetUpdate", ["addToBuffer", patchedAddToBuffer]];
 export const MSE_RENDERER_NAME = "MSERenderer";
-export const MSE_RENDERER_FUNC: string[] = ["init"];
+export const MSE_RENDERER_FUNC: FunctionList = ["init"];
 
 export function log(...obj: any) {
   console.log(`[audio ext v${version}]`, ...obj);
@@ -93,27 +96,30 @@ doHijack();
 w.__audioExtOffset = 0;
 
 w.__audioExtSetOffset = async (offset: number) => {
+  offset = Math.max(-MAX_OFFSET, Math.min(MAX_OFFSET, offset));
   if (w.__audioExtOffset === offset) return;
   w.__audioExtOffset = offset;
-  if (!w.__audioExtWrapper || !w.__audioExtPlayer || !w.__audioExtRenderer) return;
-
   const wrapper = w.__audioExtWrapper;
   const renderer = w.__audioExtRenderer;
-  const sourceBuffer = wrapper.sourceBuffers["audio/mp4"];
-
-  if (!sourceBuffer) return;
-
   const video = document.querySelector("video")!;
-  const target = video.currentTime + 1;
 
-  await wrapper.setTimestampOffset("audio/mp4", offset);
-  sourceBuffer.buffer.timestampOffset = offset;
+  // 1. Evict only the near-future native buffer (small window, not the whole tail)
+  await renderer.removeData("audio/mp4", video.currentTime + 0.2, Infinity);
 
-  await renderer.removeData("audio/mp4", video.currentTime + 0.5, Infinity);
-  log("purged buffers");
+  // 2. Re-append cached segments covering that range, re-patched with the new offset
+  for (const [_, cached] of segmentCache) {
+    if (cached.cO.startTime + 4 < video.currentTime) continue;
+    const timescale = timescaleCache.get(cached.cO.representationId)!;
+    const patched = rebuildSegmentWithOffset(cached, offset, timescale);
+    await wrapper.addToBuffer(patched);
+  }
+}
 
-  const resolved = await renderer.setCurrentTime(target);
-  log(`setCurrentTime resolved to ${resolved}`);
+function rebuildSegmentWithOffset(cachedSegment: any, offset: number, timescale: number) {
+  const clone = Object.create(Object.getPrototypeOf(cachedSegment));
+  Object.assign(clone, cachedSegment);
+  clone.data = patchTfdtOffset(cachedSegment.data, offset, timescale);
+  return clone;
 }
 
 setInterval(() => {

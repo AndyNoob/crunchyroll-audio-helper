@@ -19,66 +19,45 @@ var _ = (function(exports) {
 	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 	//#endregion
 	//#region src/patching.ts
-	var w$3 = window;
-	function patchPlayerModule(mod) {
-		const Player = mod[PLAYER_NAME];
-		if (!Player?.prototype) {
-			log("no prototype", Player);
+	var w$4 = window;
+	function patchModule(mod, clazz, funcList, assignment) {
+		const Class = mod[clazz];
+		if (!Class?.prototype) {
+			log("no prototype", Class);
 			return false;
 		}
-		if (Player.__audioExtPatched) return true;
-		Player.__audioExtPatched = true;
-		for (const method of PLAYER_FUNC) {
-			const original = Player.prototype[method];
+		if (Class.__audioExtPatched) return true;
+		Class.__audioExtPatched = true;
+		for (let method of funcList) {
+			let replacement;
+			let name;
+			if (typeof method === "object") {
+				replacement = method[1];
+				name = method[0];
+			} else {
+				replacement = null;
+				name = method;
+			}
+			const original = Class.prototype[name];
 			if (typeof original !== "function") continue;
-			Player.prototype[method] = function(...args) {
-				console.debug(`[audio ext] Player.${method}`, args);
-				w$3.__audioExtPlayer = this;
-				return original.apply(this, args);
+			Class.prototype[name] = function(...args) {
+				console.debug(`[audio ext] ${clazz}.${name}`, args);
+				assignment(this);
+				if (replacement) return replacement(original, this)(...args);
+				else return original.apply(this, args);
 			};
 		}
-		log("patched Player methods", Player);
+		log(`patched ${clazz} methods`, Class);
 		return true;
+	}
+	function patchPlayerModule(mod) {
+		return patchModule(mod, PLAYER_NAME, PLAYER_FUNC, (inst) => w$4.__audioExtPlayer = inst);
 	}
 	function patchMSEWrapperModule(mod) {
-		const Wrapper = mod[MSE_WRAPPER_NAME];
-		if (!Wrapper?.prototype) {
-			log("no prototype", Wrapper);
-			return false;
-		}
-		if (Wrapper.__audioExtPatched) return true;
-		Wrapper.__audioExtPatched = true;
-		for (const method of MSE_WRAPPER_FUNC) {
-			const original = Wrapper.prototype[method];
-			if (typeof original !== "function") continue;
-			Wrapper.prototype[method] = function(...args) {
-				console.debug(`[audio ext] MSEWrapper.${method}`, args);
-				w$3.__audioExtWrapper = this;
-				return original.apply(this, args);
-			};
-		}
-		log("patched Wrapper methods", Wrapper);
-		return true;
+		return patchModule(mod, MSE_WRAPPER_NAME, MSE_WRAPPER_FUNC, (inst) => w$4.__audioExtWrapper = inst);
 	}
 	function patchMSERenderModule(mod) {
-		const Renderer = mod[MSE_RENDERER_NAME];
-		if (!Renderer?.prototype) {
-			log("no prototype", Renderer);
-			return false;
-		}
-		if (Renderer.__audioExtPatched) return true;
-		Renderer.__audioExtPatched = true;
-		for (const method of MSE_RENDERER_FUNC) {
-			const original = Renderer.prototype[method];
-			if (typeof original !== "function") continue;
-			Renderer.prototype[method] = function(...args) {
-				console.debug(`[audio ext] MSERenderer.${method}`, args);
-				w$3.__audioExtRenderer = this;
-				return original.apply(this, args);
-			};
-		}
-		log("patched Renderer methods", Renderer);
-		return true;
+		return patchModule(mod, MSE_RENDERER_NAME, MSE_RENDERER_FUNC, (inst) => w$4.__audioExtRenderer = inst);
 	}
 	//#endregion
 	//#region src/finder.ts
@@ -160,12 +139,12 @@ var _ = (function(exports) {
 	}
 	//#endregion
 	//#region src/cache.ts
-	var w$2 = window;
+	var w$3 = window;
 	function saveCurrentOffsetToCache() {
 		const slug = getSlug(location.href);
 		if (!slug) return;
 		const cache = JSON.parse(localStorage.getItem("audio-ext-delay") || "{}");
-		cache[slug] = `${w$2.__audioExtOffset}`;
+		cache[slug] = `${w$3.__audioExtOffset}`;
 		localStorage.setItem("audio-ext-delay", JSON.stringify(cache));
 	}
 	function loadCurrentDelayFromCache() {
@@ -174,14 +153,14 @@ var _ = (function(exports) {
 		const cache = JSON.parse(localStorage.getItem("audio-ext-delay") || "{}");
 		if (!cache) return;
 		if (!cache[slug]) return;
-		w$2.__audioExtSetOffset(Number(cache[slug]));
+		w$3.__audioExtSetOffset(Number(cache[slug]));
 		const input = document.querySelector("#audioExtOffsetInput");
-		if (input instanceof HTMLInputElement) input.value = `${w$2.__audioExtOffset}`;
-		log(`[cache] offset for ${slug} is ${w$2.__audioExtOffset}sec`);
+		if (input instanceof HTMLInputElement) input.value = `${w$3.__audioExtOffset}`;
+		log(`[cache] offset for ${slug} is ${w$3.__audioExtOffset}sec`);
 	}
 	//#endregion
 	//#region src/controls.ts
-	var w$1 = window;
+	var w$2 = window;
 	/**
 	* All the className values were stripped out of Crunchy :)
 	* Button SVG taken from Google Material Icons: https://openfontlicense.org/
@@ -189,7 +168,7 @@ var _ = (function(exports) {
 	function initControls() {
 		const controlStack = document.querySelector(`[data-testid="bottom-right-controls-stack"]`);
 		if (!controlStack) return false;
-		if (!w$1.__audioExtWrapper || !w$1.__audioExtPlayer) return false;
+		if (!w$2.__audioExtWrapper || !w$2.__audioExtPlayer) return false;
 		const container = document.querySelector("#audioExtContainer") || document.createElement("div");
 		container.id = "audioExtContainer";
 		container.className = "kat:relative kat:flex kat:items-center kat:justify-center ";
@@ -211,13 +190,13 @@ var _ = (function(exports) {
 		label.id = "audioExtOffsetInputLabel";
 		label.htmlFor = "audioExtOffsetInput";
 		label.className = "kat:text-sm kat:text-white";
-		label.textContent = "Audio Offset (seconds)";
+		label.textContent = `Audio Offset (-8 ↔ 8 seconds)`;
 		const input = document.querySelector("#audioExtOffsetInput") || inputContainer.appendChild(document.createElement("input"));
 		input.id = "audioExtOffsetInput";
 		input.type = "text";
 		input.inputMode = "numeric";
 		input.pattern = "\\d*(\\.\\d+)?";
-		input.value = `${w$1.__audioExtOffset}`;
+		input.value = `${w$2.__audioExtOffset}`;
 		input.className = "kat:bg-neutral-900 kat:hover:bg-neutral-600 kat:focus-visible:outline-4 kat:focus-visible:-outline-offset-4 kat:focus-visible:outline-orange-500 kat:focus-visible:bg-neutral-600 kat:active:bg-neutral-500 kat:text-sm kat:text-white kat:rounded kat:h-24";
 		input.style.padding = "6px";
 		input.style.width = "4em";
@@ -258,7 +237,8 @@ var _ = (function(exports) {
 			input.addEventListener("change", (e) => {
 				e.preventDefault();
 				const num = Number(input.value);
-				w$1.__audioExtSetOffset(isNaN(num) ? 0 : num);
+				w$2.__audioExtSetOffset(isNaN(num) ? 0 : num);
+				input.value = w$2.__audioExtOffset;
 				saveCurrentOffsetToCache();
 			}, true);
 			input.addEventListener("keydown", (e) => e.stopPropagation());
@@ -268,9 +248,109 @@ var _ = (function(exports) {
 		return !!document.querySelector("#audioExtContainer");
 	}
 	//#endregion
+	//#region src/buffer.ts
+	var w$1 = window;
+	var segmentCache = /* @__PURE__ */ new Map();
+	var timescaleCache = /* @__PURE__ */ new Map();
+	w$1.__audioExtSegments = segmentCache;
+	w$1.__audioExtTimescales = timescaleCache;
+	function segmentKey(segment) {
+		return `${segment.cO.representationId}:${segment.cO.segmentNumber}`;
+	}
+	function patchedAddToBuffer(originalAddToBuffer, wrapper) {
+		return function(segment) {
+			if (segment.cO.mimeType === "audio/mp4" && !segment.cO.isInitSegment) {
+				ensureTimescale(segment);
+				const timescale = timescaleCache.get(segment.cO.representationId);
+				if (timescale == null) return originalAddToBuffer.call(wrapper, segment);
+				const key = segmentKey(segment);
+				if (!segmentCache.has(key)) {
+					const pristineClone = Object.create(Object.getPrototypeOf(segment));
+					Object.assign(pristineClone, segment);
+					pristineClone.data = segment.data.slice(0);
+					segmentCache.set(key, pristineClone);
+				}
+				segment.data = patchTfdtOffset(segment.data, w$1.__audioExtOffset, timescale);
+			}
+			return originalAddToBuffer.call(wrapper, segment);
+		};
+	}
+	function findBoxPath(buf, path, offset = 0, end = buf.byteLength) {
+		const view = new DataView(buf);
+		const [want, ...rest] = path;
+		while (offset < end - 8) {
+			let size = view.getUint32(offset);
+			const type = String.fromCharCode(view.getUint8(offset + 4), view.getUint8(offset + 5), view.getUint8(offset + 6), view.getUint8(offset + 7));
+			let headerSize = 8;
+			if (size === 1) {
+				size = Number(view.getBigUint64(offset + 8));
+				headerSize = 16;
+			}
+			if (size === 0) size = end - offset;
+			if (type === want) {
+				if (rest.length === 0) return {
+					offset,
+					size,
+					headerSize
+				};
+				const found = findBoxPath(buf, rest, offset + headerSize, offset + size);
+				if (found) return found;
+			}
+			offset += size;
+		}
+		return null;
+	}
+	function patchTfdtOffset(segmentData, offsetSeconds, timescale) {
+		const buf = segmentData.slice(0);
+		const tfdt = findBoxPath(buf, [
+			"moof",
+			"traf",
+			"tfdt"
+		]);
+		if (!tfdt) return buf;
+		const view = new DataView(buf);
+		const flagsOffset = tfdt.offset + tfdt.headerSize;
+		const version = view.getUint8(flagsOffset);
+		const deltaUnits = Math.round(offsetSeconds * timescale);
+		if (version === 0) {
+			const baseOffset = flagsOffset + 4;
+			const current = view.getUint32(baseOffset);
+			view.setUint32(baseOffset, Math.max(0, current + deltaUnits));
+		} else {
+			const baseOffset = flagsOffset + 4;
+			const current = view.getBigUint64(baseOffset);
+			view.setBigUint64(baseOffset, current + BigInt(deltaUnits));
+		}
+		return buf;
+	}
+	function parseTimescaleFromInit(initData) {
+		const mdhd = findBoxPath(initData, [
+			"moov",
+			"trak",
+			"mdia",
+			"mdhd"
+		]);
+		if (!mdhd) return null;
+		const view = new DataView(initData);
+		const timescaleOffset = view.getUint8(mdhd.offset + mdhd.headerSize) === 1 ? mdhd.offset + mdhd.headerSize + 4 + 8 + 8 : mdhd.offset + mdhd.headerSize + 4 + 4 + 4;
+		return view.getUint32(timescaleOffset);
+	}
+	function ensureTimescale(segment) {
+		const rep = segment.cO.representationId;
+		if (timescaleCache.has(rep)) return;
+		const initBuf = segment.sO?.data;
+		if (!initBuf) return;
+		const timescale = parseTimescaleFromInit(initBuf);
+		if (timescale != null) {
+			timescaleCache.set(rep, timescale);
+			log(`[timescale] ${rep} = ${timescale}`);
+		}
+	}
+	//#endregion
 	//#region src/index.ts
 	var w = window;
 	var version = "0.0.1";
+	var MAX_OFFSET = 8;
 	var CHUNK_NAME = "webpackChunkbitmovin_player";
 	var PLAYER_NAME = "InternalPlayer";
 	var PLAYER_FUNC = [
@@ -284,7 +364,7 @@ var _ = (function(exports) {
 	var MSE_WRAPPER_FUNC = [
 		"addBuffer",
 		"queueTimestampOffsetUpdate",
-		"addToBuffer"
+		["addToBuffer", patchedAddToBuffer]
 	];
 	var MSE_RENDERER_NAME = "MSERenderer";
 	var MSE_RENDERER_FUNC = ["init"];
@@ -353,21 +433,26 @@ var _ = (function(exports) {
 	doHijack();
 	w.__audioExtOffset = 0;
 	w.__audioExtSetOffset = async (offset) => {
+		offset = Math.max(-8, Math.min(8, offset));
 		if (w.__audioExtOffset === offset) return;
 		w.__audioExtOffset = offset;
-		if (!w.__audioExtWrapper || !w.__audioExtPlayer || !w.__audioExtRenderer) return;
 		const wrapper = w.__audioExtWrapper;
 		const renderer = w.__audioExtRenderer;
-		const sourceBuffer = wrapper.sourceBuffers["audio/mp4"];
-		if (!sourceBuffer) return;
 		const video = document.querySelector("video");
-		const target = video.currentTime + 1;
-		await wrapper.setTimestampOffset("audio/mp4", offset);
-		sourceBuffer.buffer.timestampOffset = offset;
-		await renderer.removeData("audio/mp4", video.currentTime + .5, Infinity);
-		log("purged buffers");
-		log(`setCurrentTime resolved to ${await renderer.setCurrentTime(target)}`);
+		await renderer.removeData("audio/mp4", video.currentTime + .2, Infinity);
+		for (const [key, cached] of segmentCache) {
+			if (cached.cO.startTime + 4 < video.currentTime) continue;
+			const timescale = timescaleCache.get(cached.cO.representationId);
+			const patched = rebuildSegmentWithOffset(cached, offset, timescale);
+			await wrapper.addToBuffer(patched);
+		}
 	};
+	function rebuildSegmentWithOffset(cachedSegment, offset, timescale) {
+		const clone = Object.create(Object.getPrototypeOf(cachedSegment));
+		Object.assign(clone, cachedSegment);
+		clone.data = patchTfdtOffset(cachedSegment.data, offset, timescale);
+		return clone;
+	}
 	setInterval(() => {
 		if (!w.__audioExtWrapper) return;
 		const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
@@ -387,6 +472,7 @@ var _ = (function(exports) {
 		}, 1e3);
 	}
 	//#endregion
+	exports.MAX_OFFSET = MAX_OFFSET;
 	exports.MSE_RENDERER_FUNC = MSE_RENDERER_FUNC;
 	exports.MSE_RENDERER_NAME = MSE_RENDERER_NAME;
 	exports.MSE_WRAPPER_FUNC = MSE_WRAPPER_FUNC;
