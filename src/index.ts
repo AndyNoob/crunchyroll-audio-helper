@@ -1,5 +1,5 @@
-import {patchMSEModule, patchPlayerModule} from "./patching";
-import {findModuleWithKeywords, findMSEModule, findPlayerModule} from "./finder";
+import {patchMSERenderModule, patchMSEWrapperModule, patchPlayerModule} from "./patching";
+import {findModuleWithKeywords, findMSERendererModule, findMSEWrapperModule, findPlayerModule} from "./finder";
 import {initControls} from "./controls";
 import {loadCurrentDelayFromCache} from "./cache";
 
@@ -10,7 +10,9 @@ const CHUNK_NAME = "webpackChunkbitmovin_player";
 export const PLAYER_NAME = "InternalPlayer";
 export const PLAYER_FUNC: string[] = ["load", "unload", "play", "pause", "seek"];
 export const MSE_WRAPPER_NAME = "MSEWrapper";
-export const MSE_WRAPPER_FUNC: string[] = ["addBuffer", "queueTimestampOffsetUpdate"];
+export const MSE_WRAPPER_FUNC: string[] = ["addBuffer", "queueTimestampOffsetUpdate", "addToBuffer"];
+export const MSE_RENDERER_NAME = "MSERenderer";
+export const MSE_RENDERER_FUNC: string[] = ["init"];
 
 export function log(...obj: any) {
   console.log(`[audio ext v${version}]`, ...obj);
@@ -64,7 +66,8 @@ function tryPatch() {
   const bitMovin = w["__require_webpackChunkbitmovin_player"];
   if (!bitMovin) return false;
   return patchPlayerModule(findPlayerModule(bitMovin)!.mod)
-    && patchMSEModule(findMSEModule(bitMovin)!.mod);
+    && patchMSEWrapperModule(findMSEWrapperModule(bitMovin)!.mod)
+    && patchMSERenderModule(findMSERendererModule(bitMovin)!.mod);
 }
 
 function doHijack() {
@@ -92,16 +95,25 @@ w.__audioExtOffset = 0;
 w.__audioExtSetOffset = async (offset: number) => {
   if (w.__audioExtOffset === offset) return;
   w.__audioExtOffset = offset;
-  if (!w.__audioExtWrapper || !w.__audioExtPlayer) return;
-  const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
+  if (!w.__audioExtWrapper || !w.__audioExtPlayer || !w.__audioExtRenderer) return;
+
+  const wrapper = w.__audioExtWrapper;
+  const renderer = w.__audioExtRenderer;
+  const sourceBuffer = wrapper.sourceBuffers["audio/mp4"];
+
   if (!sourceBuffer) return;
-  w.__audioExtWrapper.setTimestampOffset("audio/mp4", w.__audioExtOffset);
-  sourceBuffer.buffer.timestampOffset = w.__audioExtOffset;
-  w.__audioExtPlayer.load(); // force the video player to error so that it reloads itself
+
   const video = document.querySelector("video")!;
-  video.currentTime = sourceBuffer.buffer.buffered.start(0) - 1;
-  log(`seeking to ${video.currentTime} to make buffer work`);
-  log(`updated offset to ${offset}`);
+  const target = video.currentTime + 1;
+
+  await wrapper.setTimestampOffset("audio/mp4", offset);
+  sourceBuffer.buffer.timestampOffset = offset;
+
+  await renderer.removeData("audio/mp4", video.currentTime + 0.5, Infinity);
+  log("purged buffers");
+
+  const resolved = await renderer.setCurrentTime(target);
+  log(`setCurrentTime resolved to ${resolved}`);
 }
 
 setInterval(() => {

@@ -40,7 +40,7 @@ var _ = (function(exports) {
 		log("patched Player methods", Player);
 		return true;
 	}
-	function patchMSEModule(mod) {
+	function patchMSEWrapperModule(mod) {
 		const Wrapper = mod[MSE_WRAPPER_NAME];
 		if (!Wrapper?.prototype) {
 			log("no prototype", Wrapper);
@@ -58,6 +58,26 @@ var _ = (function(exports) {
 			};
 		}
 		log("patched Wrapper methods", Wrapper);
+		return true;
+	}
+	function patchMSERenderModule(mod) {
+		const Renderer = mod[MSE_RENDERER_NAME];
+		if (!Renderer?.prototype) {
+			log("no prototype", Renderer);
+			return false;
+		}
+		if (Renderer.__audioExtPatched) return true;
+		Renderer.__audioExtPatched = true;
+		for (const method of MSE_RENDERER_FUNC) {
+			const original = Renderer.prototype[method];
+			if (typeof original !== "function") continue;
+			Renderer.prototype[method] = function(...args) {
+				console.debug(`[audio ext] MSERenderer.${method}`, args);
+				w$3.__audioExtRenderer = this;
+				return original.apply(this, args);
+			};
+		}
+		log("patched Renderer methods", Renderer);
 		return true;
 	}
 	//#endregion
@@ -78,7 +98,7 @@ var _ = (function(exports) {
 		}
 		return null;
 	}
-	function findMSEModule(req) {
+	function findMSEWrapperModule(req) {
 		for (const id of Object.keys(req.m)) {
 			let mod;
 			try {
@@ -88,6 +108,22 @@ var _ = (function(exports) {
 				continue;
 			}
 			if (mod?.["MSEWrapper"]) return {
+				id,
+				mod
+			};
+		}
+		return null;
+	}
+	function findMSERendererModule(req) {
+		for (const id of Object.keys(req.m)) {
+			let mod;
+			try {
+				mod = req(id);
+			} catch {
+				console.warn(`[audio ext] module ${id} errored when being required`);
+				continue;
+			}
+			if (mod?.["MSERenderer"]) return {
 				id,
 				mod
 			};
@@ -245,7 +281,13 @@ var _ = (function(exports) {
 		"seek"
 	];
 	var MSE_WRAPPER_NAME = "MSEWrapper";
-	var MSE_WRAPPER_FUNC = ["addBuffer", "queueTimestampOffsetUpdate"];
+	var MSE_WRAPPER_FUNC = [
+		"addBuffer",
+		"queueTimestampOffsetUpdate",
+		"addToBuffer"
+	];
+	var MSE_RENDERER_NAME = "MSERenderer";
+	var MSE_RENDERER_FUNC = ["init"];
 	function log(...obj) {
 		console.log(`[audio ext v${version}]`, ...obj);
 	}
@@ -290,7 +332,7 @@ var _ = (function(exports) {
 	function tryPatch() {
 		const bitMovin = w["__require_webpackChunkbitmovin_player"];
 		if (!bitMovin) return false;
-		return patchPlayerModule(findPlayerModule(bitMovin).mod) && patchMSEModule(findMSEModule(bitMovin).mod);
+		return patchPlayerModule(findPlayerModule(bitMovin).mod) && patchMSEWrapperModule(findMSEWrapperModule(bitMovin).mod) && patchMSERenderModule(findMSERendererModule(bitMovin).mod);
 	}
 	function doHijack() {
 		if (!getSlug(location.href)) {
@@ -313,16 +355,18 @@ var _ = (function(exports) {
 	w.__audioExtSetOffset = async (offset) => {
 		if (w.__audioExtOffset === offset) return;
 		w.__audioExtOffset = offset;
-		if (!w.__audioExtWrapper || !w.__audioExtPlayer) return;
-		const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
+		if (!w.__audioExtWrapper || !w.__audioExtPlayer || !w.__audioExtRenderer) return;
+		const wrapper = w.__audioExtWrapper;
+		const renderer = w.__audioExtRenderer;
+		const sourceBuffer = wrapper.sourceBuffers["audio/mp4"];
 		if (!sourceBuffer) return;
-		w.__audioExtWrapper.setTimestampOffset("audio/mp4", w.__audioExtOffset);
-		sourceBuffer.buffer.timestampOffset = w.__audioExtOffset;
-		w.__audioExtPlayer.load();
 		const video = document.querySelector("video");
-		video.currentTime = sourceBuffer.buffer.buffered.start(0) - 1;
-		log(`seeking to ${video.currentTime} to make buffer work`);
-		log(`updated offset to ${offset}`);
+		const target = video.currentTime + 1;
+		await wrapper.setTimestampOffset("audio/mp4", offset);
+		sourceBuffer.buffer.timestampOffset = offset;
+		await renderer.removeData("audio/mp4", video.currentTime + .5, Infinity);
+		log("purged buffers");
+		log(`setCurrentTime resolved to ${await renderer.setCurrentTime(target)}`);
 	};
 	setInterval(() => {
 		if (!w.__audioExtWrapper) return;
@@ -343,6 +387,8 @@ var _ = (function(exports) {
 		}, 1e3);
 	}
 	//#endregion
+	exports.MSE_RENDERER_FUNC = MSE_RENDERER_FUNC;
+	exports.MSE_RENDERER_NAME = MSE_RENDERER_NAME;
 	exports.MSE_WRAPPER_FUNC = MSE_WRAPPER_FUNC;
 	exports.MSE_WRAPPER_NAME = MSE_WRAPPER_NAME;
 	exports.PLAYER_FUNC = PLAYER_FUNC;

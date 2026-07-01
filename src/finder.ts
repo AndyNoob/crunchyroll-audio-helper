@@ -1,4 +1,4 @@
-import {log, MSE_WRAPPER_NAME, PLAYER_NAME} from "./index";
+import {log, MSE_RENDERER_NAME, MSE_WRAPPER_NAME, PLAYER_NAME} from "./index";
 
 export function findPlayerModule(req: any) {
   for (const id of Object.keys(req.m)) {
@@ -15,7 +15,7 @@ export function findPlayerModule(req: any) {
   return null;
 }
 
-export function findMSEModule(req: any) {
+export function findMSEWrapperModule(req: any) {
   for (const id of Object.keys(req.m)) {
     let mod;
     try {
@@ -25,6 +25,21 @@ export function findMSEModule(req: any) {
       continue;
     }
     if (mod?.[MSE_WRAPPER_NAME])
+      return {id, mod};
+  }
+  return null;
+}
+
+export function findMSERendererModule(req: any) {
+  for (const id of Object.keys(req.m)) {
+    let mod;
+    try {
+      mod = req(id);
+    } catch {
+      console.warn(`[audio ext] module ${id} errored when being required`);
+      continue;
+    }
+    if (mod?.[MSE_RENDERER_NAME])
       return {id, mod};
   }
   return null;
