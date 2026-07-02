@@ -17,7 +17,6 @@ export function segmentKey(segment: any) {
   return `${rep}:${segment.cO.segmentNumber}`;
 }
 
-
 export function patchedAddToBuffer(originalAddToBuffer: Function, wrapper: any) {
   return function (segment: any) {
     if (segment.cO.mimeType === "audio/mp4" && !segment.cO.isInitSegment) {
@@ -110,4 +109,11 @@ export function ensureTimescale(segment: any) {
     timescaleCache.set(rep, timescale);
     log(`[timescale] ${rep} = ${timescale}`);
   }
+}
+
+export function rebuildSegmentWithOffset(cachedSegment: any, offset: number, timescale: number) {
+  const clone = Object.create(Object.getPrototypeOf(cachedSegment));
+  Object.assign(clone, cachedSegment);
+  clone.data = patchTfdtOffset(cachedSegment.data, offset, timescale);
+  return clone;
 }

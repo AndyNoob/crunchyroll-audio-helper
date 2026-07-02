@@ -9,27 +9,34 @@ persists through reload.
 ## How it works
 
 By poking the webpack code and monkey patching select functions, the extension is able to access the internal video
-player and source buffers of the Crunchyroll `/watch/` page. By adjusting the timestamp offset of the source buffers,
-the extension can apply an arbitrary offset.
+player and source buffers of the Crunchyroll `/watch/` page. By adjusting the timestamp offset of the raw audio data and
+swapping modified buffers on the fly, the extension is able to instantly apply offsets to the audio.
 
 > [!NOTE]
 > However, this does mean that the current buffer has to run out/be invalidated first. Because of that, there's a delay
 > before the offset can be applied.
 
 More specifically, the extension pushes a module into the `webpackChunkbitmovin_player` chunk, then captures the require
-function. Afterward, a scan of the entire chunk is performed to search for two modules: the module exposing the
-`InternalPlayer` class, and the module exposing the `MSEWrapper` class. By monkey patching select functions in the
-prototype of those two classes, the extension can capture the active instances.
+function. Afterward, a scan of the entire chunk is performed to search for the following modules:
+
+1. the module exposing the `InternalPlayer` class,
+2. the module exposing the `MSEWrapper` class,
+3. the module exposing the `MSERenderer` class, which uses the `MSEWrapper` class
+
+By monkey patching select functions in the prototype of those two classes, the extension can capture the active
+instances.
 
 After captures, the extension exposes the following in the `window` object:
 
-| Variable                                | Type                             | Description                                                                                                                                                                              |
-|:----------------------------------------|:---------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `__require_webpackChunkbitmovin_player` | `(moduleId: number) => any`      | the require function for the `webpackChunkbitmovin_player` chunk                                                                                                                         |
-| `__audioExtOffset`                      | `number`                         | the current offset in seconds (editing this directly doesn't trigger the player reload)                                                                                                  |
-| `__audioExtSetOffset`                   | `async (offset: number) => void` | function to set the current `audioExtOffset`, triggers a player reload and saves the new value into `localStorage` under the key `audio-ext-delay` using the slug of the current episode |
-| `__audioExtPlayer`                      | `InternalPlayer`                 | the latest active instance of the `InternalPlayer` class                                                                                                                                 |
-| `__audioExtWrapper`                     | `MSEWrapper`                     | the latest active instance of the `MSEWrapper` class                                                                                                                                     |
+| Variable                                | Type                             | Description                                                                                                                                                                                           |
+|:----------------------------------------|:---------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `__require_webpackChunkbitmovin_player` | `(moduleId: number) => any`      | the require function for the `webpackChunkbitmovin_player` chunk                                                                                                                                      |
+| `__audioExtOffset`                      | `number`                         | the current offset in seconds (editing this directly doesn't trigger the player reload)                                                                                                               |
+| `__audioExtSetOffset`                   | `async (offset: number) => void` | function to set the current `audioExtOffset`, triggers a player reload and saves the new value into `localStorage` under the key `audio-ext-delay` using the slug of the current episode              |
+| `__audioExtPlayer`                      | `InternalPlayer`                 | the latest active instance of the `InternalPlayer` class                                                                                                                                              |
+| `__audioExtWrapper`                     | `MSEWrapper`                     | the latest active instance of the `MSEWrapper` class                                                                                                                                                  |
+| `__audioExtSegments`                    | `Map<string, any>`               | map of currently loaded audio buffers, with the key being `${representationId}:${segmentNumber}`, the value is an audio segment object, which contains the ArrayBuffer containing the actual raw data |
+| `__audioExtTimescales`                  | `Map<string, any>`               | map of the episode's timescale, with the key being `${representationId}`                                                                                                                              |
 
 Please note that it may take a few moments after opening a `/watch/` page for these variables to become populated.
 Additionally, these values are wiped between in page navigations.

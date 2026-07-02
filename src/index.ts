@@ -2,7 +2,7 @@ import {type FunctionList, patchMSERenderModule, patchMSEWrapperModule, patchPla
 import {findModuleWithKeywords, findMSERendererModule, findMSEWrapperModule, findPlayerModule} from "./finder";
 import {initControls} from "./controls";
 import {loadCurrentDelayFromCache} from "./cache";
-import {patchedAddToBuffer, patchTfdtOffset, segmentCache, timescaleCache} from "./buffer";
+import {patchedAddToBuffer, rebuildSegmentWithOffset, segmentCache, timescaleCache} from "./buffer";
 
 const w = window as any;
 const version = __VERSION__;
@@ -113,13 +113,6 @@ w.__audioExtSetOffset = async (offset: number) => {
     const patched = rebuildSegmentWithOffset(cached, offset, timescale);
     await wrapper.addToBuffer(patched);
   }
-}
-
-function rebuildSegmentWithOffset(cachedSegment: any, offset: number, timescale: number) {
-  const clone = Object.create(Object.getPrototypeOf(cachedSegment));
-  Object.assign(clone, cachedSegment);
-  clone.data = patchTfdtOffset(cachedSegment.data, offset, timescale);
-  return clone;
 }
 
 setInterval(() => {

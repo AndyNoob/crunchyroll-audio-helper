@@ -346,6 +346,12 @@ var _ = (function(exports) {
 			log(`[timescale] ${rep} = ${timescale}`);
 		}
 	}
+	function rebuildSegmentWithOffset(cachedSegment, offset, timescale) {
+		const clone = Object.create(Object.getPrototypeOf(cachedSegment));
+		Object.assign(clone, cachedSegment);
+		clone.data = patchTfdtOffset(cachedSegment.data, offset, timescale);
+		return clone;
+	}
 	//#endregion
 	//#region src/index.ts
 	var w = window;
@@ -440,19 +446,13 @@ var _ = (function(exports) {
 		const renderer = w.__audioExtRenderer;
 		const video = document.querySelector("video");
 		await renderer.removeData("audio/mp4", video.currentTime + .2, Infinity);
-		for (const [key, cached] of segmentCache) {
+		for (const [_, cached] of segmentCache) {
 			if (cached.cO.startTime + 4 < video.currentTime) continue;
 			const timescale = timescaleCache.get(cached.cO.representationId);
 			const patched = rebuildSegmentWithOffset(cached, offset, timescale);
 			await wrapper.addToBuffer(patched);
 		}
 	};
-	function rebuildSegmentWithOffset(cachedSegment, offset, timescale) {
-		const clone = Object.create(Object.getPrototypeOf(cachedSegment));
-		Object.assign(clone, cachedSegment);
-		clone.data = patchTfdtOffset(cachedSegment.data, offset, timescale);
-		return clone;
-	}
 	setInterval(() => {
 		if (!w.__audioExtWrapper) return;
 		const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
