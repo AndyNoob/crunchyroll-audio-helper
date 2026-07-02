@@ -37,6 +37,9 @@ window.navigation.addEventListener("currententrychange", (event) => {
     w.__audioExtOffset = 0;
     w.__audioExtPlayer = null;
     w.__audioExtWrapper = null;
+    segmentCache.clear();
+    timescaleCache.clear();
+
     w["__require_webpackChunkbitmovin_player"] = null;
     const container = document.querySelector("#audioExtContainer");
     if (container) {
