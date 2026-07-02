@@ -1,7 +1,7 @@
 {
   "name": "cr-audio-ext",
   "displayName": "Crunchyroll Audio Extension",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.",
   "author": "AndyNoob",
   "license": "MIT",
