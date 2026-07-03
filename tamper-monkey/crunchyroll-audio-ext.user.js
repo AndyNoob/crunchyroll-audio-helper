@@ -61,53 +61,30 @@ var _ = (function(exports) {
 	}
 	//#endregion
 	//#region src/finder.ts
-	function findPlayerModule(req) {
+	function findModule(req, name) {
 		for (const id of Object.keys(req.m)) {
 			let mod;
 			try {
 				mod = req(id);
 			} catch {
-				console.warn(`[audio ext] module ${id} errored when being required`);
+				console.debug(`[audio ext] module ${id} errored when being required`);
 				continue;
 			}
-			if (mod?.["InternalPlayer"]) return {
+			if (mod?.[name]) return {
 				id,
 				mod
 			};
 		}
 		return null;
+	}
+	function findPlayerModule(req) {
+		return findModule(req, PLAYER_NAME);
 	}
 	function findMSEWrapperModule(req) {
-		for (const id of Object.keys(req.m)) {
-			let mod;
-			try {
-				mod = req(id);
-			} catch {
-				console.warn(`[audio ext] module ${id} errored when being required`);
-				continue;
-			}
-			if (mod?.["MSEWrapper"]) return {
-				id,
-				mod
-			};
-		}
-		return null;
+		return findModule(req, MSE_WRAPPER_NAME);
 	}
 	function findMSERendererModule(req) {
-		for (const id of Object.keys(req.m)) {
-			let mod;
-			try {
-				mod = req(id);
-			} catch {
-				console.warn(`[audio ext] module ${id} errored when being required`);
-				continue;
-			}
-			if (mod?.["MSERenderer"]) return {
-				id,
-				mod
-			};
-		}
-		return null;
+		return findModule(req, MSE_RENDERER_NAME);
 	}
 	function findModuleWithKeywords(req, ...keywords) {
 		const ret = [];
@@ -249,6 +226,13 @@ var _ = (function(exports) {
 	}
 	//#endregion
 	//#region src/buffer.ts
+	/**
+	* This file is almost entirely vibe coded using Sonnet 5 as I have zero knowledge of the CMAF format.
+	*
+	* Essentially, we monkey patch the `MSEWrapper.addToBuffer` function, caching the original buffer, then returning the
+	* modified version with our desired offset (`segmentCache` & `timescaleCache`). Because of the cache, we can easily swap
+	* out all buffers when the user changes the offset via the UI.
+	*/
 	var w$1 = window;
 	var segmentCache = /* @__PURE__ */ new Map();
 	var timescaleCache = /* @__PURE__ */ new Map();

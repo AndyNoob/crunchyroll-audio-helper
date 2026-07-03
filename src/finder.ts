@@ -1,48 +1,35 @@
 import {log, MSE_RENDERER_NAME, MSE_WRAPPER_NAME, PLAYER_NAME} from "./index";
 
-export function findPlayerModule(req: any) {
+interface Module {
+  id: string,
+  mod: any
+}
+
+export function findModule(req: any, name: string): Module | null {
   for (const id of Object.keys(req.m)) {
     let mod;
     try {
       mod = req(id);
     } catch {
-      console.warn(`[audio ext] module ${id} errored when being required`);
+      console.debug(`[audio ext] module ${id} errored when being required`);
       continue;
     }
-    if (mod?.[PLAYER_NAME])
+    if (mod?.[name])
       return {id, mod};
   }
   return null;
+}
+
+export function findPlayerModule(req: any) {
+  return findModule(req, PLAYER_NAME);
 }
 
 export function findMSEWrapperModule(req: any) {
-  for (const id of Object.keys(req.m)) {
-    let mod;
-    try {
-      mod = req(id);
-    } catch {
-      console.warn(`[audio ext] module ${id} errored when being required`);
-      continue;
-    }
-    if (mod?.[MSE_WRAPPER_NAME])
-      return {id, mod};
-  }
-  return null;
+  return findModule(req, MSE_WRAPPER_NAME);
 }
 
 export function findMSERendererModule(req: any) {
-  for (const id of Object.keys(req.m)) {
-    let mod;
-    try {
-      mod = req(id);
-    } catch {
-      console.warn(`[audio ext] module ${id} errored when being required`);
-      continue;
-    }
-    if (mod?.[MSE_RENDERER_NAME])
-      return {id, mod};
-  }
-  return null;
+  return findModule(req, MSE_RENDERER_NAME);
 }
 
 export function findModuleWithKeywords(req: any, ...keywords: string[]) {

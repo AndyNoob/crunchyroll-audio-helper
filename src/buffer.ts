@@ -1,7 +1,11 @@
 import {log} from "./index";
 
-/*
-This file is almost entirely vibe coded using Sonnet 5 as I have zero knowledge of the CMAF format.
+/**
+ * This file is almost entirely vibe coded using Sonnet 5 as I have zero knowledge of the CMAF format.
+ *
+ * Essentially, we monkey patch the `MSEWrapper.addToBuffer` function, caching the original buffer, then returning the
+ * modified version with our desired offset (`segmentCache` & `timescaleCache`). Because of the cache, we can easily swap
+ * out all buffers when the user changes the offset via the UI.
  */
 
 const w = window as any;
