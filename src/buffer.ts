@@ -12,6 +12,12 @@ export const timescaleCache = new Map<string, number>();
 w.__audioExtSegments = segmentCache;
 w.__audioExtTimescales = timescaleCache;
 
+interface BoxPath {
+  offset: number,
+  size: number,
+  headerSize: number
+}
+
 export function segmentKey(segment: any) {
   const rep = segment.cO.representationId;
   return `${rep}:${segment.cO.segmentNumber}`;
@@ -39,8 +45,10 @@ export function patchedAddToBuffer(originalAddToBuffer: Function, wrapper: any) 
   };
 }
 
-function findBoxPath(buf: ArrayBuffer, path: string[], offset = 0, end = buf.byteLength): any | null {
-  // path e.g. ["moof", "traf", "tfdt"] - returns {offset, size} of final box
+/**
+ * @description Path e.g. ["moof", "traf", "tfdt"] - returns {offset, size} of final box
+ */
+function findBoxPath(buf: ArrayBuffer, path: string[], offset = 0, end = buf.byteLength): BoxPath | null {
   const view = new DataView(buf);
   const [want, ...rest] = path;
   while (offset < end - 8) {
