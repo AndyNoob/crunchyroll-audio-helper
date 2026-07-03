@@ -12,10 +12,6 @@ By poking the webpack code and monkey patching select functions, the extension i
 player and source buffers of the Crunchyroll `/watch/` page. By adjusting the timestamp offset of the raw audio data and
 swapping modified buffers on the fly, the extension is able to instantly apply offsets to the audio.
 
-> [!NOTE]
-> However, this does mean that the current buffer has to run out/be invalidated first. Because of that, there's a delay
-> before the offset can be applied.
-
 More specifically, the extension pushes a module into the `webpackChunkbitmovin_player` chunk, then captures the require
 function. Afterward, a scan of the entire chunk is performed to search for the following modules:
 
