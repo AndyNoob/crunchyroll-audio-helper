@@ -275,6 +275,9 @@ var _ = (function(exports) {
 			return originalAddToBuffer.call(wrapper, segment);
 		};
 	}
+	/**
+	* @description Path e.g. ["moof", "traf", "tfdt"] - returns {offset, size} of final box
+	*/
 	function findBoxPath(buf, path, offset = 0, end = buf.byteLength) {
 		const view = new DataView(buf);
 		const [want, ...rest] = path;
@@ -455,12 +458,6 @@ var _ = (function(exports) {
 			await wrapper.addToBuffer(patched);
 		}
 	};
-	setInterval(() => {
-		if (!w.__audioExtWrapper) return;
-		const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
-		if (!sourceBuffer) return;
-		sourceBuffer.buffer.timestampOffset = w.__audioExtOffset;
-	}, 250);
 	function tryInitControls() {
 		const id = setInterval(() => {
 			const video = document.querySelector("video");

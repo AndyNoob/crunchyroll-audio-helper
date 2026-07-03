@@ -117,13 +117,6 @@ w.__audioExtSetOffset = async (offset: number) => {
     await wrapper.addToBuffer(patched);
   }
 }
-
-setInterval(() => {
-  if (!w.__audioExtWrapper) return;
-  const sourceBuffer = w.__audioExtWrapper.sourceBuffers["audio/mp4"];
-  if (!sourceBuffer) return;
-  sourceBuffer.buffer.timestampOffset = w.__audioExtOffset;
-}, 250);
 // endregion
 
 // region Insert Controls
