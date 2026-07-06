@@ -7,7 +7,7 @@ import {patchedAddToBuffer, rebuildSegmentWithOffset, segmentCache, timescaleCac
 const w = window as any;
 const version = __VERSION__;
 
-export const MAX_OFFSET = 8;
+export const MAX_OFFSET = 15;
 
 const CHUNK_NAME = "webpackChunkbitmovin_player";
 export const PLAYER_NAME = "InternalPlayer";
