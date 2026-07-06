@@ -1,5 +1,8 @@
 # Crunchyroll Audio Helper
 
+![](https://hackatime.hackclub.com/api/v1/badge/U07A64GBPV1/AndyNoob/crunchyroll-audio-helper) [![Chrome Web Store Users](https://img.shields.io/chrome-web-store/users/mnojgeohmdbfmlaejggmknkoijbaeaif?logo=chromewebstore&logoColor=white&label=Chrome%20Webstore%20Users&color=red)](https://chromewebstore.google.com/detail/crunchyroll-audio-extensi/mnojgeohmdbfmlaejggmknkoijbaeaif) [![Tampermonkey Badge](https://img.shields.io/badge/Tampermonkey-click%20me-blue?logo=tampermonkey)](https://github.com/AndyNoob/crunchyroll-audio-helper/raw/refs/heads/main/tamper-monkey/crunchyroll-audio-ext.user.js)
+
+
 A helper extension/userscript to add offset to audio on the Crunchyroll streaming service. The extension is compatible
 with the Croptix extension. Additionally, for convenience's sake, the offset of the current episode is cached and
 persists through reload.
