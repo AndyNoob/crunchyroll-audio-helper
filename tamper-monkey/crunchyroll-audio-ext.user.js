@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name           cr-audio-ext
 // @namespace      https://github.com/AndyNoob
-// @version        0.1.1
+// @version        0.1.2
 // @author         AndyNoob
 // @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
 // @license        MIT
@@ -167,7 +167,7 @@ var _ = (function(exports) {
 		label.id = "audioExtOffsetInputLabel";
 		label.htmlFor = "audioExtOffsetInput";
 		label.className = "kat:text-sm kat:text-white";
-		label.textContent = `Audio Offset (-8 ↔ 8 seconds)`;
+		label.textContent = `Audio Offset (-15 ↔ 15 seconds)`;
 		const input = document.querySelector("#audioExtOffsetInput") || inputContainer.appendChild(document.createElement("input"));
 		input.id = "audioExtOffsetInput";
 		input.type = "text";
@@ -342,8 +342,8 @@ var _ = (function(exports) {
 	//#endregion
 	//#region src/index.ts
 	var w = window;
-	var version = "0.1.1";
-	var MAX_OFFSET = 8;
+	var version = "0.1.2";
+	var MAX_OFFSET = 15;
 	var CHUNK_NAME = "webpackChunkbitmovin_player";
 	var PLAYER_NAME = "InternalPlayer";
 	var PLAYER_FUNC = [
@@ -428,7 +428,7 @@ var _ = (function(exports) {
 	doHijack();
 	w.__audioExtOffset = 0;
 	w.__audioExtSetOffset = async (offset) => {
-		offset = Math.max(-8, Math.min(8, offset));
+		offset = Math.max(-15, Math.min(15, offset));
 		if (w.__audioExtOffset === offset) return;
 		w.__audioExtOffset = offset;
 		const wrapper = w.__audioExtWrapper;
