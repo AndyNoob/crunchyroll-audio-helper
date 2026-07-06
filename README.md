@@ -39,3 +39,7 @@ After captures, the extension exposes the following in the `window` object:
 
 Please note that it may take a few moments after opening a `/watch/` page for these variables to become populated.
 Additionally, these values are wiped between in page navigations.
+
+## Credits
+
+This project was partially made with the help of generative AI (Claude Sonnet). In particular, the `buffer.ts` file is largely coded using Claude Sonnet. 
