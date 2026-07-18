@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name           cr-audio-ext
 // @namespace      https://github.com/AndyNoob
-// @version        0.1.2
+// @version        0.1.3
 // @author         AndyNoob
 // @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
 // @license        MIT
@@ -254,7 +254,7 @@ var _ = (function(exports) {
 					segmentCache.set(key, pristineClone);
 				}
 				segment.data = patchTfdtOffset(segment.data, w$1.__audioExtOffset, timescale);
-				log("applied offset to new segment", key, w$1.__audioExtOffset);
+				debug("[buffer] applied offset to new segment", key, w$1.__audioExtOffset);
 			}
 			return originalAddToBuffer.call(wrapper, segment);
 		};
@@ -342,7 +342,7 @@ var _ = (function(exports) {
 	//#endregion
 	//#region src/index.ts
 	var w = window;
-	var version = "0.1.2";
+	var version = "0.1.3";
 	var MAX_OFFSET = 15;
 	var CHUNK_NAME = "webpackChunkbitmovin_player";
 	var PLAYER_NAME = "InternalPlayer";
@@ -363,6 +363,9 @@ var _ = (function(exports) {
 	var MSE_RENDERER_FUNC = ["init"];
 	function log(...obj) {
 		console.log(`[audio ext v${version}]`, ...obj);
+	}
+	function debug(...obj) {
+		console.debug(`[audio ext v${version}]`, ...obj);
 	}
 	function getSlug(url) {
 		return url.match(/crunchyroll\.com\/watch\/([^\/]+)/)?.[1];
@@ -439,7 +442,7 @@ var _ = (function(exports) {
 			const patched = rebuildSegmentWithOffset(cached, offset, timescale);
 			await wrapper.addToBuffer_real(patched);
 		}
-		console.log(`reloaded segments (n=${segmentCache.size}, offset=${w.__audioExtOffset})`);
+		log(`[set offset] reloaded segments (n=${segmentCache.size}, offset=${w.__audioExtOffset})`);
 	};
 	function tryInitControls() {
 		const id = setInterval(() => {
@@ -460,6 +463,7 @@ var _ = (function(exports) {
 	exports.MSE_WRAPPER_NAME = MSE_WRAPPER_NAME;
 	exports.PLAYER_FUNC = PLAYER_FUNC;
 	exports.PLAYER_NAME = PLAYER_NAME;
+	exports.debug = debug;
 	exports.getSlug = getSlug;
 	exports.log = log;
 	return exports;
