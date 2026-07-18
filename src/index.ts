@@ -21,6 +21,10 @@ export function log(...obj: any) {
   console.log(`[audio ext v${version}]`, ...obj);
 }
 
+export function debug(...obj: any) {
+  console.debug(`[audio ext v${version}]`, ...obj);
+}
+
 // region Player Hijacking
 export function getSlug(url: string) {
   return url.match(/crunchyroll\.com\/watch\/([^\/]+)/)?.[1];
@@ -81,12 +85,15 @@ function doHijack() {
     log("not a watch page, skipping");
     return;
   }
+
+  loadCurrentDelayFromCache();
+
   const timer = setInterval(() => {
     const bitMovinChunk = w[CHUNK_NAME];
     if (!bitMovinChunk) return;
     captureRequire(CHUNK_NAME);
     if (tryPatch()) {
-      log("patch complete, injecting controls");
+      log(`patch complete, injecting controls (offset=${w.__audioExtOffset})`);
       clearInterval(timer);
       w["__audioExtFind"] = findModuleWithKeywords;
       tryInitControls();
@@ -94,9 +101,9 @@ function doHijack() {
   }, 50);
 }
 
-doHijack();
+if (w.__audioExtOffset == null) w.__audioExtOffset = 0;
 
-w.__audioExtOffset = 0;
+doHijack();
 
 w.__audioExtSetOffset = async (offset: number) => {
   offset = Math.max(-MAX_OFFSET, Math.min(MAX_OFFSET, offset));
@@ -104,18 +111,16 @@ w.__audioExtSetOffset = async (offset: number) => {
   w.__audioExtOffset = offset;
   const wrapper = w.__audioExtWrapper;
   const renderer = w.__audioExtRenderer;
-  const video = document.querySelector("video")!;
 
-  // 1. Evict only the near-future native buffer (small window, not the whole tail)
-  await renderer.removeData("audio/mp4", video.currentTime + 0.2, Infinity);
+  await renderer.removeData("audio/mp4", 0, Infinity);
 
-  // 2. Re-append cached segments covering that range, re-patched with the new offset
   for (const [_, cached] of segmentCache) {
-    if (cached.cO.startTime + 4 < video.currentTime) continue;
     const timescale = timescaleCache.get(cached.cO.representationId)!;
     const patched = rebuildSegmentWithOffset(cached, offset, timescale);
-    await wrapper.addToBuffer(patched);
+    await wrapper.addToBuffer_real(patched);
   }
+
+  log(`[set offset] reloaded segments (n=${segmentCache.size}, offset=${w.__audioExtOffset})`);
 }
 // endregion
 
@@ -128,7 +133,6 @@ function tryInitControls() {
         clearInterval(id);
         log("controls injected");
       }
-      loadCurrentDelayFromCache();
     }
   }, 1000);
 }

@@ -1,4 +1,4 @@
-import {log} from "./index";
+import {debug, log} from "./index";
 
 /**
  * This file is almost entirely vibe coded using Sonnet 5 as I have zero knowledge of the CMAF format.
@@ -44,6 +44,7 @@ export function patchedAddToBuffer(originalAddToBuffer: Function, wrapper: any) 
         segmentCache.set(key, pristineClone);
       }
       segment.data = patchTfdtOffset(segment.data, w.__audioExtOffset, timescale);
+      debug("[buffer] applied offset to new segment", key, w.__audioExtOffset);
     }
     return originalAddToBuffer.call(wrapper, segment);
   };

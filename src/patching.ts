@@ -33,6 +33,7 @@ export function patchModule(mod: any,
     if (typeof method === "object") {
       replacement = method[1];
       name = method[0];
+      Class.prototype[`${name}_real`] = Class.prototype[name];
     } else {
       replacement = null;
       name = method;

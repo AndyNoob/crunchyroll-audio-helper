@@ -34,6 +34,7 @@ var _ = (function(exports) {
 			if (typeof method === "object") {
 				replacement = method[1];
 				name = method[0];
+				Class.prototype[`${name}_real`] = Class.prototype[name];
 			} else {
 				replacement = null;
 				name = method;
@@ -130,9 +131,7 @@ var _ = (function(exports) {
 		const cache = JSON.parse(localStorage.getItem("audio-ext-delay") || "{}");
 		if (!cache) return;
 		if (!cache[slug]) return;
-		w$3.__audioExtSetOffset(Number(cache[slug]));
-		const input = document.querySelector("#audioExtOffsetInput");
-		if (input instanceof HTMLInputElement) input.value = `${w$3.__audioExtOffset}`;
+		w$3.__audioExtOffset = Number(cache[slug]);
 		log(`[cache] offset for ${slug} is ${w$3.__audioExtOffset}sec`);
 	}
 	//#endregion
@@ -255,6 +254,7 @@ var _ = (function(exports) {
 					segmentCache.set(key, pristineClone);
 				}
 				segment.data = patchTfdtOffset(segment.data, w$1.__audioExtOffset, timescale);
+				log("applied offset to new segment", key, w$1.__audioExtOffset);
 			}
 			return originalAddToBuffer.call(wrapper, segment);
 		};
@@ -414,33 +414,32 @@ var _ = (function(exports) {
 			log("not a watch page, skipping");
 			return;
 		}
+		loadCurrentDelayFromCache();
 		const timer = setInterval(() => {
 			if (!w[CHUNK_NAME]) return;
 			captureRequire(CHUNK_NAME);
 			if (tryPatch()) {
-				log("patch complete, injecting controls");
+				log(`patch complete, injecting controls (offset=${w.__audioExtOffset})`);
 				clearInterval(timer);
 				w["__audioExtFind"] = findModuleWithKeywords;
 				tryInitControls();
 			}
 		}, 50);
 	}
+	if (w.__audioExtOffset == null) w.__audioExtOffset = 0;
 	doHijack();
-	w.__audioExtOffset = 0;
 	w.__audioExtSetOffset = async (offset) => {
 		offset = Math.max(-15, Math.min(15, offset));
 		if (w.__audioExtOffset === offset) return;
 		w.__audioExtOffset = offset;
 		const wrapper = w.__audioExtWrapper;
-		const renderer = w.__audioExtRenderer;
-		const video = document.querySelector("video");
-		await renderer.removeData("audio/mp4", video.currentTime + .2, Infinity);
+		await w.__audioExtRenderer.removeData("audio/mp4", 0, Infinity);
 		for (const [_, cached] of segmentCache) {
-			if (cached.cO.startTime + 4 < video.currentTime) continue;
 			const timescale = timescaleCache.get(cached.cO.representationId);
 			const patched = rebuildSegmentWithOffset(cached, offset, timescale);
-			await wrapper.addToBuffer(patched);
+			await wrapper.addToBuffer_real(patched);
 		}
+		console.log(`reloaded segments (n=${segmentCache.size}, offset=${w.__audioExtOffset})`);
 	};
 	function tryInitControls() {
 		const id = setInterval(() => {
@@ -450,7 +449,6 @@ var _ = (function(exports) {
 					clearInterval(id);
 					log("controls injected");
 				}
-				loadCurrentDelayFromCache();
 			}
 		}, 1e3);
 	}
