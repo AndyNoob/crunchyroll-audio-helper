@@ -9,7 +9,7 @@ const tamperMonkeyHeader = `
 // @author         AndyNoob
 // @description    ${pkg.description}
 // @license        MIT
-// @match          https://www.crunchyroll.com/watch/*
+// @match          https://www.crunchyroll.com/*
 // @grant          none
 // @run-at         document-start
 // @downloadURL    https://raw.githubusercontent.com/AndyNoob/crunchyroll-audio-helper/refs/heads/main/tamper-monkey/crunchyroll-audio-ext.user.js

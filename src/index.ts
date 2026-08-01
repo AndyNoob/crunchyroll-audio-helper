@@ -27,7 +27,7 @@ export function debug(...obj: any) {
 
 // region Player Hijacking
 export function getSlug(url: string) {
-  return url.match(/crunchyroll\.com\/watch\/([^\/]+)/)?.[1];
+  return url.match(/crunchyroll\.com\/(?:[^/]+\/)?watch\/([^\/]+)/)?.[1];
 }
 
 window.navigation.addEventListener("currententrychange", (event) => {

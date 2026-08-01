@@ -6,7 +6,7 @@
 // @author         AndyNoob
 // @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
 // @license        MIT
-// @match          https://www.crunchyroll.com/watch/*
+// @match          https://www.crunchyroll.com/*
 // @grant          none
 // @run-at         document-start
 // @downloadURL    https://raw.githubusercontent.com/AndyNoob/crunchyroll-audio-helper/refs/heads/main/tamper-monkey/crunchyroll-audio-ext.user.js
@@ -371,7 +371,7 @@ var _ = (function(exports) {
 		console.debug(`[audio ext v${version}]`, ...obj);
 	}
 	function getSlug(url) {
-		return url.match(/crunchyroll\.com\/watch\/([^\/]+)/)?.[1];
+		return url.match(/crunchyroll\.com\/(?:[^/]+\/)?watch\/([^\/]+)/)?.[1];
 	}
 	window.navigation.addEventListener("currententrychange", (event) => {
 		const currentUrl = event.from.url;
