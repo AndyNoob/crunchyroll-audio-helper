@@ -1,7 +1,8 @@
+
 // ==UserScript==
-// @name           cr-audio-ext
+// @name           Crunchyroll Audio Helper
 // @namespace      https://github.com/AndyNoob
-// @version        0.1.3
+// @version        0.1.4
 // @author         AndyNoob
 // @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
 // @license        MIT
@@ -13,7 +14,9 @@
 // @updateURL      https://raw.githubusercontent.com/AndyNoob/crunchyroll-audio-helper/refs/heads/main/tamper-monkey/crunchyroll-audio-ext.user.js
 // @source         git+https://github.com/AndyNoob/crunchyroll-audio-helper.git
 // @homepage       https://github.com/AndyNoob/crunchyroll-audio-helper
+// @icon           https://raw.githubusercontent.com/AndyNoob/crunchyroll-audio-helper/refs/heads/main/icons/icon-64.png
 // ==/UserScript==
+
 
 var _ = (function(exports) {
 	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
@@ -342,7 +345,7 @@ var _ = (function(exports) {
 	//#endregion
 	//#region src/index.ts
 	var w = window;
-	var version = "0.1.3";
+	var version = "0.1.4";
 	var MAX_OFFSET = 15;
 	var CHUNK_NAME = "webpackChunkbitmovin_player";
 	var PLAYER_NAME = "InternalPlayer";
