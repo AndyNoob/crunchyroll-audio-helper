@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           Crunchyroll Audio Helper
 // @namespace      https://github.com/AndyNoob
-// @version        0.1.4
+// @version        0.1.5
 // @author         AndyNoob
 // @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
 // @license        MIT
@@ -345,7 +345,7 @@ var _ = (function(exports) {
 	//#endregion
 	//#region src/index.ts
 	var w = window;
-	var version = "0.1.4";
+	var version = "0.1.5";
 	var MAX_OFFSET = 15;
 	var CHUNK_NAME = "webpackChunkbitmovin_player";
 	var PLAYER_NAME = "InternalPlayer";
