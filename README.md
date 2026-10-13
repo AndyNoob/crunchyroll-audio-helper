@@ -35,7 +35,7 @@ After captures, the extension exposes the following in the `window` object:
 | `__audioExtPlayer`                      | `InternalPlayer`                 | the latest active instance of the `InternalPlayer` class                                                                                                                                              |
 | `__audioExtWrapper`                     | `MSEWrapper`                     | the latest active instance of the `MSEWrapper` class                                                                                                                                                  |
 | `__audioExtSegments`                    | `Map<string, any>`               | map of currently loaded audio buffers, with the key being `${representationId}:${segmentNumber}`, the value is an audio segment object, which contains the ArrayBuffer containing the actual raw data |
-| `__audioExtTimescales`                  | `Map<string, any>`               | map of the episode's timescale, with the key being `${representationId}`                                                                                                                              |
+| `__audioExtTimescales`                  | `Map<string, any>`               | map of the episode's timescale, with the key being `${representationId}`. NO LONGER USED                                                                                                              |
 
 Please note that it may take a few moments after opening a `/watch/` page for these variables to become populated.
 Additionally, these values are wiped between in page navigations.
