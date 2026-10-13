@@ -2,7 +2,7 @@ import {type FunctionList, patchMSERenderModule, patchMSEWrapperModule, patchPla
 import {findModuleWithKeywords, findMSERendererModule, findMSEWrapperModule, findPlayerModule} from "./finder";
 import {initControls} from "./controls";
 import {loadCurrentDelayFromCache} from "./cache";
-import {patchedAddToBuffer, rebuildSegmentWithOffset, segmentCache, timescaleCache} from "./buffer";
+import {patchedAddToBuffer, rebuildSegmentWithOffset, segmentCache, timescaleCache, timescaleKeys} from "./buffer";
 
 const w = window as any;
 const version = __VERSION__;
@@ -115,7 +115,7 @@ w.__audioExtSetOffset = async (offset: number) => {
   await renderer.removeData("audio/mp4", 0, Infinity);
 
   for (const [_, cached] of segmentCache) {
-    const timescale = timescaleCache.get(cached.cO.representationId)!;
+    const timescale = cached[timescaleKeys![0]!][timescaleKeys![1]!].timescale;
     const patched = rebuildSegmentWithOffset(cached, offset, timescale);
     await wrapper.addToBuffer_real(patched);
   }

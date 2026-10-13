@@ -22,29 +22,75 @@ interface BoxPath {
   headerSize: number
 }
 
-export function segmentKey(segment: any) {
-  const rep = segment.cO.representationId;
-  return `${rep}:${segment.cO.segmentNumber}`;
+export function segmentKey(info: any) {
+  const rep = info.representationId;
+  return `${rep}:${info.segmentNumber}`;
+}
+
+export let infoKey: string | null = null;
+export let timescaleKeys: string[] | null = null;
+
+function searchForInfoKey(segment: any): string | null {
+  for (const key of Object.keys(segment)) {
+    if (segment[key]?.mimeType) {
+      debug("info key is", key);
+      return key;
+    }
+  }
+  return null;
+}
+
+function searchForTimescaleKeys(segment: any): string[] | null {
+  let first = null;
+  for (const key of Object.keys(segment)) {
+    if (segment[key]?.data) {
+      first = key;
+      break;
+    }
+  }
+  if (!first) return null;
+  let second = null;
+  for (const key of Object.keys(segment[first])) {
+    if (segment[first][key]?.timescale) {
+      second = key;
+      break;
+    }
+  }
+  if (!second) return null;
+  debug("timescale key is", first, second);
+  return [first, second];
 }
 
 export function patchedAddToBuffer(originalAddToBuffer: Function, wrapper: any) {
   return function (segment: any) {
-    if (segment.cO.mimeType === "audio/mp4" && !segment.cO.isInitSegment) {
-      ensureTimescale(segment);
-      const timescale = timescaleCache.get(segment.cO.representationId);
-      if (timescale == null) {
+    try {
+      if (!infoKey) infoKey = searchForInfoKey(segment);
+      const info = segment[infoKey!];
+
+      if (!info) {
+        console.warn("segment member not found, probably got renamed");
         return originalAddToBuffer.call(wrapper, segment);
       }
-      const key = segmentKey(segment);
-      if (!segmentCache.has(key)) {
-        // cache the pristine object, bytes untouched, before any patch
-        const pristineClone = Object.create(Object.getPrototypeOf(segment));
-        Object.assign(pristineClone, segment);
-        pristineClone.data = segment.data.slice(0);
-        segmentCache.set(key, pristineClone);
+      if (info.mimeType === "audio/mp4") {
+        if (!timescaleKeys) timescaleKeys = searchForTimescaleKeys(segment);
+        const timescale = segment[timescaleKeys![0]!][timescaleKeys![1]!].timescale
+        if (timescale == null) {
+          return originalAddToBuffer.call(wrapper, segment);
+        }
+        const key = segmentKey(info);
+        if (!segmentCache.has(key)) {
+          // cache the pristine object, bytes untouched, before any patch
+          const pristineClone = Object.create(Object.getPrototypeOf(segment));
+          Object.assign(pristineClone, segment);
+          pristineClone.data = segment.data.slice(0);
+          segmentCache.set(key, pristineClone);
+        }
+        segment.data = patchTfdtOffset(segment.data, w.__audioExtOffset, timescale);
+        debug("[buffer] applied offset to new segment", key, w.__audioExtOffset);
       }
-      segment.data = patchTfdtOffset(segment.data, w.__audioExtOffset, timescale);
-      debug("[buffer] applied offset to new segment", key, w.__audioExtOffset);
+      return originalAddToBuffer.call(wrapper, segment);
+    } catch (e) {
+      console.warn("[audio ext] addToBuffer patch failed, passing through", e, segment && Object.keys(segment));
     }
     return originalAddToBuffer.call(wrapper, segment);
   };
@@ -112,10 +158,10 @@ function parseTimescaleFromInit(initData: ArrayBuffer): number | null {
   return view.getUint32(timescaleOffset);
 }
 
-export function ensureTimescale(segment: any) {
-  const rep = segment.cO.representationId;
+export function ensureTimescale(segment: any, info: any) {
+  const rep = info.representationId;
   if (timescaleCache.has(rep)) return;
-  const initBuf = segment.sO?.data;
+  const initBuf = segment.data;
   if (!initBuf) return; // no init attached on this segment, skip for now
   const timescale = parseTimescaleFromInit(initBuf);
   if (timescale != null) {
