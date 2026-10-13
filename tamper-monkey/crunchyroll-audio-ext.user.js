@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           Crunchyroll Audio Helper
 // @namespace      https://github.com/AndyNoob
-// @version        0.1.5
+// @version        0.1.6
 // @author         AndyNoob
 // @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
 // @license        MIT
@@ -240,24 +240,60 @@ var _ = (function(exports) {
 	var timescaleCache = /* @__PURE__ */ new Map();
 	w$1.__audioExtSegments = segmentCache;
 	w$1.__audioExtTimescales = timescaleCache;
-	function segmentKey(segment) {
-		return `${segment.cO.representationId}:${segment.cO.segmentNumber}`;
+	function segmentKey(info) {
+		return `${info.representationId}:${info.segmentNumber}`;
+	}
+	var infoKey = null;
+	var timescaleKeys = null;
+	function searchForInfoKey(segment) {
+		for (const key of Object.keys(segment)) if (segment[key]?.mimeType) {
+			debug("info key is", key);
+			return key;
+		}
+		return null;
+	}
+	function searchForTimescaleKeys(segment) {
+		let first = null;
+		for (const key of Object.keys(segment)) if (segment[key]?.data) {
+			first = key;
+			break;
+		}
+		if (!first) return null;
+		let second = null;
+		for (const key of Object.keys(segment[first])) if (segment[first][key]?.timescale) {
+			second = key;
+			break;
+		}
+		if (!second) return null;
+		debug("timescale key is", first, second);
+		return [first, second];
 	}
 	function patchedAddToBuffer(originalAddToBuffer, wrapper) {
 		return function(segment) {
-			if (segment.cO.mimeType === "audio/mp4" && !segment.cO.isInitSegment) {
-				ensureTimescale(segment);
-				const timescale = timescaleCache.get(segment.cO.representationId);
-				if (timescale == null) return originalAddToBuffer.call(wrapper, segment);
-				const key = segmentKey(segment);
-				if (!segmentCache.has(key)) {
-					const pristineClone = Object.create(Object.getPrototypeOf(segment));
-					Object.assign(pristineClone, segment);
-					pristineClone.data = segment.data.slice(0);
-					segmentCache.set(key, pristineClone);
+			try {
+				if (!infoKey) infoKey = searchForInfoKey(segment);
+				const info = segment[infoKey];
+				if (!info) {
+					console.warn("segment member not found, probably got renamed");
+					return originalAddToBuffer.call(wrapper, segment);
 				}
-				segment.data = patchTfdtOffset(segment.data, w$1.__audioExtOffset, timescale);
-				debug("[buffer] applied offset to new segment", key, w$1.__audioExtOffset);
+				if (info.mimeType === "audio/mp4") {
+					if (!timescaleKeys) timescaleKeys = searchForTimescaleKeys(segment);
+					const timescale = segment[timescaleKeys[0]][timescaleKeys[1]].timescale;
+					if (timescale == null) return originalAddToBuffer.call(wrapper, segment);
+					const key = segmentKey(info);
+					if (!segmentCache.has(key)) {
+						const pristineClone = Object.create(Object.getPrototypeOf(segment));
+						Object.assign(pristineClone, segment);
+						pristineClone.data = segment.data.slice(0);
+						segmentCache.set(key, pristineClone);
+					}
+					segment.data = patchTfdtOffset(segment.data, w$1.__audioExtOffset, timescale);
+					debug("[buffer] applied offset to new segment", key, w$1.__audioExtOffset);
+				}
+				return originalAddToBuffer.call(wrapper, segment);
+			} catch (e) {
+				console.warn("[audio ext] addToBuffer patch failed, passing through", e, segment && Object.keys(segment));
 			}
 			return originalAddToBuffer.call(wrapper, segment);
 		};
@@ -313,29 +349,6 @@ var _ = (function(exports) {
 		}
 		return buf;
 	}
-	function parseTimescaleFromInit(initData) {
-		const mdhd = findBoxPath(initData, [
-			"moov",
-			"trak",
-			"mdia",
-			"mdhd"
-		]);
-		if (!mdhd) return null;
-		const view = new DataView(initData);
-		const timescaleOffset = view.getUint8(mdhd.offset + mdhd.headerSize) === 1 ? mdhd.offset + mdhd.headerSize + 4 + 8 + 8 : mdhd.offset + mdhd.headerSize + 4 + 4 + 4;
-		return view.getUint32(timescaleOffset);
-	}
-	function ensureTimescale(segment) {
-		const rep = segment.cO.representationId;
-		if (timescaleCache.has(rep)) return;
-		const initBuf = segment.sO?.data;
-		if (!initBuf) return;
-		const timescale = parseTimescaleFromInit(initBuf);
-		if (timescale != null) {
-			timescaleCache.set(rep, timescale);
-			log(`[timescale] ${rep} = ${timescale}`);
-		}
-	}
 	function rebuildSegmentWithOffset(cachedSegment, offset, timescale) {
 		const clone = Object.create(Object.getPrototypeOf(cachedSegment));
 		Object.assign(clone, cachedSegment);
@@ -345,7 +358,7 @@ var _ = (function(exports) {
 	//#endregion
 	//#region src/index.ts
 	var w = window;
-	var version = "0.1.5";
+	var version = "0.1.6";
 	var MAX_OFFSET = 15;
 	var CHUNK_NAME = "webpackChunkbitmovin_player";
 	var PLAYER_NAME = "InternalPlayer";
@@ -441,7 +454,7 @@ var _ = (function(exports) {
 		const wrapper = w.__audioExtWrapper;
 		await w.__audioExtRenderer.removeData("audio/mp4", 0, Infinity);
 		for (const [_, cached] of segmentCache) {
-			const timescale = timescaleCache.get(cached.cO.representationId);
+			const timescale = cached[timescaleKeys[0]][timescaleKeys[1]].timescale;
 			const patched = rebuildSegmentWithOffset(cached, offset, timescale);
 			await wrapper.addToBuffer_real(patched);
 		}
