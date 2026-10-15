@@ -434,6 +434,7 @@ var _ = (function(exports) {
 			return;
 		}
 		loadCurrentDelayFromCache();
+		let tries = 100;
 		const timer = setInterval(() => {
 			if (!w[CHUNK_NAME]) return;
 			captureRequire(CHUNK_NAME);
@@ -442,6 +443,11 @@ var _ = (function(exports) {
 				clearInterval(timer);
 				w["__audioExtFind"] = findModuleWithKeywords;
 				tryInitControls();
+				return;
+			}
+			if (--tries < 0) {
+				console.error(`[audio ext v${version}] failed to locate ${CHUNK_NAME}`);
+				clearInterval(timer);
 			}
 		}, 50);
 	}

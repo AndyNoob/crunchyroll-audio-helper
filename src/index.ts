@@ -88,6 +88,8 @@ function doHijack() {
 
   loadCurrentDelayFromCache();
 
+  let tries = 100;
+
   const timer = setInterval(() => {
     const bitMovinChunk = w[CHUNK_NAME];
     if (!bitMovinChunk) return;
@@ -97,6 +99,11 @@ function doHijack() {
       clearInterval(timer);
       w["__audioExtFind"] = findModuleWithKeywords;
       tryInitControls();
+      return;
+    }
+    if (--tries < 0) {
+      console.error(`[audio ext v${version}] failed to locate ${CHUNK_NAME}`);
+      clearInterval(timer);
     }
   }, 50);
 }
