@@ -92,7 +92,13 @@ function doHijack() {
 
   const timer = setInterval(() => {
     const bitMovinChunk = w[CHUNK_NAME];
-    if (!bitMovinChunk) return;
+    if (!bitMovinChunk) {
+      if (--tries < 0) {
+        console.error(`[audio ext v${version}] failed to locate ${CHUNK_NAME}`);
+        clearInterval(timer);
+      }
+      return;
+    }
     captureRequire(CHUNK_NAME);
     if (tryPatch()) {
       log(`patch complete, injecting controls (offset=${w.__audioExtOffset})`);
@@ -102,7 +108,7 @@ function doHijack() {
       return;
     }
     if (--tries < 0) {
-      console.error(`[audio ext v${version}] failed to locate ${CHUNK_NAME}`);
+      console.error(`[audio ext v${version}] failed to patch ${CHUNK_NAME}`);
       clearInterval(timer);
     }
   }, 50);
