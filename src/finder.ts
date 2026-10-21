@@ -1,4 +1,10 @@
-import {log, MSE_RENDERER_NAME, MSE_WRAPPER_NAME, PLAYER_NAME} from "./index";
+import {
+  log,
+  MSE_RENDERER_NAME_BITMOVIN,
+  MSE_WRAPPER_NAME_BITMOVIN,
+  PLAYER_NAME_BITMOVIN,
+  ENGINE_NAME_SHAKA
+} from "./index";
 
 interface Module {
   id: string,
@@ -20,16 +26,20 @@ export function findModule(req: any, name: string): Module | null {
   return null;
 }
 
-export function findPlayerModule(req: any) {
-  return findModule(req, PLAYER_NAME);
+export function findMediaEngineModule_shaka(req: any) {
+  return findModule(req, ENGINE_NAME_SHAKA);
 }
 
-export function findMSEWrapperModule(req: any) {
-  return findModule(req, MSE_WRAPPER_NAME);
+export function findPlayerModule_bitmovin(req: any) {
+  return findModule(req, PLAYER_NAME_BITMOVIN);
 }
 
-export function findMSERendererModule(req: any) {
-  return findModule(req, MSE_RENDERER_NAME);
+export function findMSEWrapperModule_bitmovin(req: any) {
+  return findModule(req, MSE_WRAPPER_NAME_BITMOVIN);
+}
+
+export function findMSERendererModule_bitmovin(req: any) {
+  return findModule(req, MSE_RENDERER_NAME_BITMOVIN);
 }
 
 export function findModuleWithKeywords(req: any, ...keywords: string[]) {
@@ -47,7 +57,7 @@ export function findModuleWithKeywords(req: any, ...keywords: string[]) {
     const keys = [...Object.keys(mod), ...Object.keys(Object.getPrototypeOf(mod))];
     for (let key of keys) {
       for (let keyword of keywords) {
-        if (key.toLowerCase().includes(keyword)) {
+        if (key.toLowerCase().includes(keyword.toLowerCase())) {
           ids.push(Number(id));
           log({id, mod});
           ret.push({id, mod});

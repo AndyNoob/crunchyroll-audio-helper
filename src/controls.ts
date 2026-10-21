@@ -10,7 +10,7 @@ const w = window as any;
 export function initControls(): boolean {
   const controlStack = document.querySelector(`[data-testid="bottom-right-controls-stack"]`);
   if (!controlStack) return false;
-  if (!w.__audioExtWrapper || !w.__audioExtPlayer) return false;
+  // if (!w.__audioExtWrapper || !w.__audioExtPlayer) return false;
   const container: HTMLDivElement = document.querySelector("#audioExtContainer")
     || document.createElement("div");
   container.id = "audioExtContainer";
