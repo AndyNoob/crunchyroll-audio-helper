@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           Crunchyroll Audio Helper
 // @namespace      https://github.com/AndyNoob
-// @version        0.1.6
+// @version        0.2.0
 // @author         AndyNoob
 // @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
 // @license        MIT
@@ -23,10 +23,17 @@ var _ = (function(exports) {
 	//#endregion
 	//#region src/patching.ts
 	var w$4 = window;
+	/**
+	* Patches all functions in funcList. Functions that are patched will have a `${functionName}_real` version populated, where the actual function can be called.
+	* @param mod module to search for the target class in
+	* @param clazz target class
+	* @param funcList list of functions, and optionally their patched version
+	* @param assignment callback for when an instance of the class is located
+	*/
 	function patchModule(mod, clazz, funcList, assignment) {
 		const Class = mod[clazz];
 		if (!Class?.prototype) {
-			log("no prototype", Class);
+			log("could not find prototype of", Class);
 			return false;
 		}
 		if (Class.__audioExtPatched) return true;
@@ -45,7 +52,7 @@ var _ = (function(exports) {
 			const original = Class.prototype[name];
 			if (typeof original !== "function") continue;
 			Class.prototype[name] = function(...args) {
-				console.debug(`[audio ext] ${clazz}.${name}`, args);
+				debug(`${clazz}.${name}`, args);
 				assignment(this);
 				if (replacement) return replacement(original, this)(...args);
 				else return original.apply(this, args);
@@ -54,14 +61,30 @@ var _ = (function(exports) {
 		log(`patched ${clazz} methods`, Class);
 		return true;
 	}
-	function patchPlayerModule(mod) {
-		return patchModule(mod, PLAYER_NAME, PLAYER_FUNC, (inst) => w$4.__audioExtPlayer = inst);
+	function patchPlayerModule_bitmovin(mod) {
+		return patchModule(mod, PLAYER_NAME_BITMOVIN, PLAYER_FUNC_BITMOVIN, (inst) => w$4.__audioExtPlayer = inst);
 	}
-	function patchMSEWrapperModule(mod) {
-		return patchModule(mod, MSE_WRAPPER_NAME, MSE_WRAPPER_FUNC, (inst) => w$4.__audioExtWrapper = inst);
+	function patchMSEWrapperModule_bitmovin(mod) {
+		return patchModule(mod, MSE_WRAPPER_NAME_BITMOVIN, MSE_WRAPPER_FUNC_BITMOVIN, (inst) => w$4.__audioExtWrapper = inst);
 	}
-	function patchMSERenderModule(mod) {
-		return patchModule(mod, MSE_RENDERER_NAME, MSE_RENDERER_FUNC, (inst) => w$4.__audioExtRenderer = inst);
+	function patchMSERenderModule_bitmovin(mod) {
+		return patchModule(mod, MSE_RENDERER_NAME_BITMOVIN, MSE_RENDERER_FUNC_BITMOVIN, (inst) => w$4.__audioExtRenderer = inst);
+	}
+	function patchMediaEngineModule_shaka(mod) {
+		return patchModule(mod, ENGINE_NAME_SHAKA, ENGINE_FUNC_SHAKA, (inst) => {
+			w$4.__audioExtEngine = inst;
+			const player = inst.player;
+			for (let key of [...Object.keys(player)]) {
+				if (!player[key]) continue;
+				const prototype = Object.getPrototypeOf(player[key]);
+				debug("searching for shaka mse", key, player[key], prototype);
+				if (prototype && prototype["flush"] && prototype["endOfStream"]) {
+					w$4.__audioExtShakaMSE = player[key];
+					log("found shaka mse", w$4.__audioExtShakaMSE);
+					break;
+				}
+			}
+		});
 	}
 	//#endregion
 	//#region src/finder.ts
@@ -81,14 +104,17 @@ var _ = (function(exports) {
 		}
 		return null;
 	}
-	function findPlayerModule(req) {
-		return findModule(req, PLAYER_NAME);
+	function findMediaEngineModule_shaka(req) {
+		return findModule(req, ENGINE_NAME_SHAKA);
 	}
-	function findMSEWrapperModule(req) {
-		return findModule(req, MSE_WRAPPER_NAME);
+	function findPlayerModule_bitmovin(req) {
+		return findModule(req, PLAYER_NAME_BITMOVIN);
 	}
-	function findMSERendererModule(req) {
-		return findModule(req, MSE_RENDERER_NAME);
+	function findMSEWrapperModule_bitmovin(req) {
+		return findModule(req, MSE_WRAPPER_NAME_BITMOVIN);
+	}
+	function findMSERendererModule_bitmovin(req) {
+		return findModule(req, MSE_RENDERER_NAME_BITMOVIN);
 	}
 	function findModuleWithKeywords(req, ...keywords) {
 		const ret = [];
@@ -103,7 +129,7 @@ var _ = (function(exports) {
 				continue;
 			}
 			const keys = [...Object.keys(mod), ...Object.keys(Object.getPrototypeOf(mod))];
-			for (let key of keys) for (let keyword of keywords) if (key.toLowerCase().includes(keyword)) {
+			for (let key of keys) for (let keyword of keywords) if (key.toLowerCase().includes(keyword.toLowerCase())) {
 				ids.push(Number(id));
 				log({
 					id,
@@ -147,7 +173,6 @@ var _ = (function(exports) {
 	function initControls() {
 		const controlStack = document.querySelector(`[data-testid="bottom-right-controls-stack"]`);
 		if (!controlStack) return false;
-		if (!w$2.__audioExtWrapper || !w$2.__audioExtPlayer) return false;
 		const container = document.querySelector("#audioExtContainer") || document.createElement("div");
 		container.id = "audioExtContainer";
 		container.className = "kat:relative kat:flex kat:items-center kat:justify-center ";
@@ -358,25 +383,30 @@ var _ = (function(exports) {
 	//#endregion
 	//#region src/index.ts
 	var w = window;
-	var version = "0.1.6";
+	var version = "0.2.0";
+	var isShaka = !w["webpackChunkbitmovin_player"];
 	var MAX_OFFSET = 15;
-	var CHUNK_NAME = "webpackChunkbitmovin_player";
-	var PLAYER_NAME = "InternalPlayer";
-	var PLAYER_FUNC = [
+	var CHUNK_NAME_BITMOVIN = "webpackChunkbitmovin_player";
+	var CHUNK_NAME_SHAKA = "webpackChunk_N_E";
+	w["__audioExtFind"] = findModuleWithKeywords;
+	var PLAYER_NAME_BITMOVIN = "InternalPlayer";
+	var PLAYER_FUNC_BITMOVIN = [
 		"load",
 		"unload",
 		"play",
 		"pause",
 		"seek"
 	];
-	var MSE_WRAPPER_NAME = "MSEWrapper";
-	var MSE_WRAPPER_FUNC = [
+	var MSE_WRAPPER_NAME_BITMOVIN = "MSEWrapper";
+	var MSE_WRAPPER_FUNC_BITMOVIN = [
 		"addBuffer",
 		"queueTimestampOffsetUpdate",
 		["addToBuffer", patchedAddToBuffer]
 	];
-	var MSE_RENDERER_NAME = "MSERenderer";
-	var MSE_RENDERER_FUNC = ["init"];
+	var MSE_RENDERER_NAME_BITMOVIN = "MSERenderer";
+	var MSE_RENDERER_FUNC_BITMOVIN = ["init"];
+	var ENGINE_NAME_SHAKA = "ShakaMediaEngine";
+	var ENGINE_FUNC_SHAKA = ["load", "unload"];
 	function log(...obj) {
 		console.log(`[audio ext v${version}]`, ...obj);
 	}
@@ -424,9 +454,13 @@ var _ = (function(exports) {
 		]);
 	}
 	function tryPatch() {
-		const bitMovin = w["__require_webpackChunkbitmovin_player"];
-		if (!bitMovin) return false;
-		return patchPlayerModule(findPlayerModule(bitMovin).mod) && patchMSEWrapperModule(findMSEWrapperModule(bitMovin).mod) && patchMSERenderModule(findMSERendererModule(bitMovin).mod);
+		const require = w[`__require_${w["SubtitlesOctopus"] ? CHUNK_NAME_SHAKA : CHUNK_NAME_BITMOVIN}`];
+		if (!require) return false;
+		try {
+			if (w["SubtitlesOctopus"]) return patchMediaEngineModule_shaka(findMediaEngineModule_shaka(require).mod);
+			else return patchPlayerModule_bitmovin(findPlayerModule_bitmovin(require).mod) && patchMSEWrapperModule_bitmovin(findMSEWrapperModule_bitmovin(require).mod) && patchMSERenderModule_bitmovin(findMSERendererModule_bitmovin(require).mod);
+		} catch (e) {}
+		return false;
 	}
 	function doHijack() {
 		if (!getSlug(location.href)) {
@@ -436,35 +470,52 @@ var _ = (function(exports) {
 		loadCurrentDelayFromCache();
 		let tries = 100;
 		const timer = setInterval(() => {
-			if (!w[CHUNK_NAME]) return;
-			captureRequire(CHUNK_NAME);
+			const chunkName = isShaka ? CHUNK_NAME_SHAKA : CHUNK_NAME_BITMOVIN;
+			if (!w[chunkName]) {
+				if (--tries < 0) {
+					console.error(`[audio ext v${version}] failed to locate ${chunkName}`);
+					clearInterval(timer);
+				}
+				return;
+			}
+			captureRequire(chunkName);
 			if (tryPatch()) {
 				log(`patch complete, injecting controls (offset=${w.__audioExtOffset})`);
 				clearInterval(timer);
-				w["__audioExtFind"] = findModuleWithKeywords;
 				tryInitControls();
 				return;
 			}
 			if (--tries < 0) {
-				console.error(`[audio ext v${version}] failed to locate ${CHUNK_NAME}`);
+				console.error(`[audio ext v${version}] failed to patch ${chunkName}`);
 				clearInterval(timer);
 			}
 		}, 50);
 	}
 	if (w.__audioExtOffset == null) w.__audioExtOffset = 0;
 	doHijack();
-	w.__audioExtSetOffset = async (offset) => {
+	w.__audioExtSetOffset = async (offset, force = false) => {
 		offset = Math.max(-15, Math.min(15, offset));
-		if (w.__audioExtOffset === offset) return;
+		if (!force && w.__audioExtOffset === offset) return;
 		w.__audioExtOffset = offset;
-		const wrapper = w.__audioExtWrapper;
-		await w.__audioExtRenderer.removeData("audio/mp4", 0, Infinity);
-		for (const [_, cached] of segmentCache) {
-			const timescale = cached[timescaleKeys[0]][timescaleKeys[1]].timescale;
-			const patched = rebuildSegmentWithOffset(cached, offset, timescale);
-			await wrapper.addToBuffer_real(patched);
+		if (isShaka) for (let key of Object.keys(w.__audioExtShakaMSE)) {
+			const val = w.__audioExtShakaMSE[key];
+			if (!(val instanceof Map)) continue;
+			const buffers = val.get("audio");
+			if (!(buffers instanceof SourceBuffer)) continue;
+			buffers.timestampOffset = offset;
+			log(`[set offset] applied offset=${w.__audioExtOffset})`, buffers);
+			break;
 		}
-		log(`[set offset] reloaded segments (n=${segmentCache.size}, offset=${w.__audioExtOffset})`);
+		else {
+			const wrapper = w.__audioExtWrapper;
+			await w.__audioExtRenderer.removeData("audio/mp4", 0, Infinity);
+			for (const [_, cached] of segmentCache) {
+				const timescale = cached[timescaleKeys[0]][timescaleKeys[1]].timescale;
+				const patched = rebuildSegmentWithOffset(cached, offset, timescale);
+				await wrapper.addToBuffer_real(patched);
+			}
+			log(`[set offset] reloaded segments (n=${segmentCache.size}, offset=${w.__audioExtOffset})`);
+		}
 	};
 	function tryInitControls() {
 		const id = setInterval(() => {
@@ -474,17 +525,20 @@ var _ = (function(exports) {
 					clearInterval(id);
 					log("controls injected");
 				}
+				if (isShaka) w.__audioExtSetOffset(w.__audioExtOffset, true);
 			}
 		}, 1e3);
 	}
 	//#endregion
+	exports.ENGINE_FUNC_SHAKA = ENGINE_FUNC_SHAKA;
+	exports.ENGINE_NAME_SHAKA = ENGINE_NAME_SHAKA;
 	exports.MAX_OFFSET = MAX_OFFSET;
-	exports.MSE_RENDERER_FUNC = MSE_RENDERER_FUNC;
-	exports.MSE_RENDERER_NAME = MSE_RENDERER_NAME;
-	exports.MSE_WRAPPER_FUNC = MSE_WRAPPER_FUNC;
-	exports.MSE_WRAPPER_NAME = MSE_WRAPPER_NAME;
-	exports.PLAYER_FUNC = PLAYER_FUNC;
-	exports.PLAYER_NAME = PLAYER_NAME;
+	exports.MSE_RENDERER_FUNC_BITMOVIN = MSE_RENDERER_FUNC_BITMOVIN;
+	exports.MSE_RENDERER_NAME_BITMOVIN = MSE_RENDERER_NAME_BITMOVIN;
+	exports.MSE_WRAPPER_FUNC_BITMOVIN = MSE_WRAPPER_FUNC_BITMOVIN;
+	exports.MSE_WRAPPER_NAME_BITMOVIN = MSE_WRAPPER_NAME_BITMOVIN;
+	exports.PLAYER_FUNC_BITMOVIN = PLAYER_FUNC_BITMOVIN;
+	exports.PLAYER_NAME_BITMOVIN = PLAYER_NAME_BITMOVIN;
 	exports.debug = debug;
 	exports.getSlug = getSlug;
 	exports.log = log;
