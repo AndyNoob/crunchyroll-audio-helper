@@ -73,11 +73,11 @@ var _ = (function(exports) {
 	function patchMediaEngineModule_shaka(mod) {
 		return patchModule(mod, ENGINE_NAME_SHAKA, ENGINE_FUNC_SHAKA, (inst) => {
 			w$4.__audioExtEngine = inst;
+			if (w$4.__audioExtShakaMSE) return;
 			const player = inst.player;
 			for (let key of [...Object.keys(player)]) {
 				if (!player[key]) continue;
 				const prototype = Object.getPrototypeOf(player[key]);
-				debug("searching for shaka mse", key, player[key], prototype);
 				if (prototype && prototype["flush"] && prototype["endOfStream"]) {
 					w$4.__audioExtShakaMSE = player[key];
 					log("found shaka mse", w$4.__audioExtShakaMSE);
@@ -85,6 +85,60 @@ var _ = (function(exports) {
 				}
 			}
 		});
+	}
+	var sourceBufferMapKey_shaka = null;
+	function findSourceBufferMapKey_shaka() {
+		if (sourceBufferMapKey_shaka) return sourceBufferMapKey_shaka;
+		for (let key of Object.keys(w$4.__audioExtShakaMSE)) {
+			const val = w$4.__audioExtShakaMSE[key];
+			if (!(val instanceof Map)) continue;
+			if (!(val.get("audio") instanceof SourceBuffer)) continue;
+			return sourceBufferMapKey_shaka = key;
+		}
+		return null;
+	}
+	function patchBuffer_postVideoLoad_shaka() {
+		const key = findSourceBufferMapKey_shaka();
+		if (!key) {
+			log("could not find SourceBuffer map key for MSE");
+			return;
+		}
+		const buffer = w$4.__audioExtShakaMSE[key].get("audio");
+		if (!buffer) {
+			log("could not find audio SourceBuffer for MSE");
+			return;
+		}
+		if (buffer["timestampOffset_real"]) return;
+		const proto = Object.getPrototypeOf(buffer);
+		const descriptor = Object.getOwnPropertyDescriptor(proto, "timestampOffset");
+		log(buffer, proto, descriptor);
+		const realGet = descriptor?.get;
+		const realSet = descriptor?.set;
+		if (!(realGet && realSet)) {
+			log("failed to find get/set descriptors for SourceBuffer.timestampOffset");
+			return;
+		}
+		Object.defineProperty(buffer, "timestampOffset", {
+			configurable: true,
+			get() {
+				debug(`timestampOffset.get called (offset=${getSafeOffset()})`);
+				return realGet.call(this) - getSafeOffset();
+			},
+			set(shakaValue) {
+				debug(`timestampOffset.set called with ${shakaValue} (offset=${getSafeOffset()})`);
+				realSet.call(this, shakaValue + getSafeOffset());
+			}
+		});
+		Object.defineProperty(buffer, "timestampOffset_real", {
+			configurable: true,
+			get() {
+				return realGet();
+			},
+			set(value) {
+				realSet.call(this, value);
+			}
+		});
+		log("patched SourceBuffer.timestampOffset");
 	}
 	//#endregion
 	//#region src/finder.ts
@@ -160,8 +214,12 @@ var _ = (function(exports) {
 		const cache = JSON.parse(localStorage.getItem("audio-ext-delay") || "{}");
 		if (!cache) return;
 		if (!cache[slug]) return;
-		w$3.__audioExtOffset = Number(cache[slug]);
-		log(`[cache] offset for ${slug} is ${w$3.__audioExtOffset}sec`);
+		let num = Number(cache[slug]);
+		if (isNaN(num)) num = 0;
+		if (w$3.__audioExtOffset != num) {
+			w$3.__audioExtOffset = num;
+			log(`[cache] offset for ${slug} is ${w$3.__audioExtOffset}sec`);
+		}
 	}
 	//#endregion
 	//#region src/controls.ts
@@ -416,6 +474,18 @@ var _ = (function(exports) {
 	function getSlug(url) {
 		return url.match(/crunchyroll\.com\/(?:[^/]+\/)?watch\/([^\/]+)/)?.[1];
 	}
+	/**
+	* Used to reset all states in between page navigations
+	*/
+	function resetStates() {
+		w.__audioExtOffset = 0;
+		w.__audioExtPlayer = null;
+		w.__audioExtWrapper = null;
+		w.__audioExtShakaMSE = null;
+		w.__audioExtEngine = null;
+		segmentCache.clear();
+		timescaleCache.clear();
+	}
 	window.navigation.addEventListener("currententrychange", (event) => {
 		const currentUrl = event.from.url;
 		const newUrl = window.navigation.currentEntry?.url;
@@ -423,11 +493,7 @@ var _ = (function(exports) {
 		const newSlug = getSlug(newUrl);
 		if (!newSlug || curSlug !== newSlug) {
 			log("url changed, resetting");
-			w.__audioExtOffset = 0;
-			w.__audioExtPlayer = null;
-			w.__audioExtWrapper = null;
-			segmentCache.clear();
-			timescaleCache.clear();
+			resetStates();
 			w["__require_webpackChunkbitmovin_player"] = null;
 			const container = document.querySelector("#audioExtContainer");
 			if (container) {
@@ -493,20 +559,64 @@ var _ = (function(exports) {
 	}
 	if (w.__audioExtOffset == null) w.__audioExtOffset = 0;
 	doHijack();
+	/**
+	* Loads and sanitized current offset value.
+	*/
+	function getSafeOffset() {
+		loadCurrentDelayFromCache();
+		if (isNaN(w.__audioExtOffset)) debug("__audioExtOffset is NaN");
+		return w.__audioExtOffset = isNaN(w.__audioExtOffset) ? 0 : w.__audioExtOffset;
+	}
 	w.__audioExtSetOffset = async (offset, force = false) => {
+		if (isNaN(offset)) offset = 0;
 		offset = Math.max(-15, Math.min(15, offset));
 		if (!force && w.__audioExtOffset === offset) return;
 		w.__audioExtOffset = offset;
-		if (isShaka) for (let key of Object.keys(w.__audioExtShakaMSE)) {
-			const val = w.__audioExtShakaMSE[key];
-			if (!(val instanceof Map)) continue;
-			const buffers = val.get("audio");
-			if (!(buffers instanceof SourceBuffer)) continue;
-			buffers.timestampOffset = offset;
-			log(`[set offset] applied offset=${w.__audioExtOffset})`, buffers);
-			break;
-		}
-		else {
+		if (isShaka) {
+			const video = document.querySelector("video");
+			if (!video) {
+				log("[set offset] failed to find video element");
+				return;
+			}
+			const buffer = w.__audioExtShakaMSE[findSourceBufferMapKey_shaka()].get("audio");
+			if (video.currentTime > Math.max(2, Math.abs(offset))) {
+				const proto = Object.getPrototypeOf(buffer);
+				if (!proto) {
+					log("[set offset] failed to get prototype of SourceBuffer");
+					return;
+				}
+				const prevBuffered = Object.getOwnPropertyDescriptor(proto, "buffered");
+				if (!prevBuffered) {
+					log("[set offset] failed to buffered descriptors of SourceBuffer");
+					return;
+				}
+				const fakeRange = {
+					length: 1,
+					start(i) {
+						if (i !== 0) throw new RangeError("index out of range");
+						return 0;
+					},
+					end(i) {
+						if (i !== 0) throw new RangeError("index out of range");
+						return .1;
+					}
+				};
+				Object.defineProperty(buffer, "buffered", {
+					configurable: true,
+					get() {
+						return fakeRange;
+					}
+				});
+				debug("[set offset] applied fake buffered");
+				video.addEventListener("seeking", () => {
+					Object.defineProperty(buffer, "buffered", prevBuffered);
+					debug("[set offset] reset buffered");
+				}, { once: true });
+				video.currentTime -= 1;
+			}
+			buffer.timestampOffset_real = offset;
+			log(`[set offset] applied offset=${w.__audioExtOffset}`, buffer);
+		} else {
 			const wrapper = w.__audioExtWrapper;
 			await w.__audioExtRenderer.removeData("audio/mp4", 0, Infinity);
 			for (const [_, cached] of segmentCache) {
@@ -520,12 +630,16 @@ var _ = (function(exports) {
 	function tryInitControls() {
 		const id = setInterval(() => {
 			const video = document.querySelector("video");
-			if (video && video.readyState === HTMLMediaElement.HAVE_ENOUGH_DATA) {
+			if (video) {
+				if (video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) return;
 				if (initControls()) {
 					clearInterval(id);
 					log("controls injected");
 				}
-				if (isShaka) w.__audioExtSetOffset(w.__audioExtOffset, true);
+				if (isShaka) {
+					patchBuffer_postVideoLoad_shaka();
+					w.__audioExtSetOffset(getSafeOffset(), true);
+				}
 			}
 		}, 1e3);
 	}
@@ -540,6 +654,7 @@ var _ = (function(exports) {
 	exports.PLAYER_FUNC_BITMOVIN = PLAYER_FUNC_BITMOVIN;
 	exports.PLAYER_NAME_BITMOVIN = PLAYER_NAME_BITMOVIN;
 	exports.debug = debug;
+	exports.getSafeOffset = getSafeOffset;
 	exports.getSlug = getSlug;
 	exports.log = log;
 	return exports;

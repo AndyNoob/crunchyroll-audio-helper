@@ -16,6 +16,10 @@ export function loadCurrentDelayFromCache() {
   const cache = JSON.parse(localStorage.getItem("audio-ext-delay") || "{}");
   if (!cache) return;
   if (!cache[slug]) return;
-  w.__audioExtOffset = Number(cache[slug]);
-  log(`[cache] offset for ${slug} is ${w.__audioExtOffset}sec`);
+  let num = Number(cache[slug]);
+  if (isNaN(num)) num = 0;
+  if (w.__audioExtOffset != num) {
+    w.__audioExtOffset = num;
+    log(`[cache] offset for ${slug} is ${w.__audioExtOffset}sec`);
+  }
 }

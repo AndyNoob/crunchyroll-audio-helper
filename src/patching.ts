@@ -1,4 +1,5 @@
 import {
+  getSafeOffset,
   debug,
   log,
   ENGINE_FUNC_SHAKA,
@@ -82,6 +83,7 @@ export function patchMediaEngineModule_shaka(mod: any) {
   return patchModule(mod, ENGINE_NAME_SHAKA, ENGINE_FUNC_SHAKA, inst => {
     w.__audioExtEngine = inst;
 
+    if (w.__audioExtShakaMSE) return;
     // since Shaka is so damn obfuscated, this is the easiest way i can think of
     // to yoink the mse out of the engine. still need to do the same thing to find the buffers,
     // but at least we are getting somewhere
@@ -89,7 +91,7 @@ export function patchMediaEngineModule_shaka(mod: any) {
     for (let key of [...Object.keys(player)]) {
       if (!player[key]) continue; // idk just in case some bs happens
       const prototype = Object.getPrototypeOf(player[key]);
-      debug("searching for shaka mse", key, player[key], prototype);
+      // debug("searching for shaka mse", key, player[key], prototype);
       // there were a few functions that weren't obfuscated and part of the prototype
       // but i don't think i need to match all of them
       if (prototype && prototype["flush"] && prototype["endOfStream"]) {
@@ -99,4 +101,72 @@ export function patchMediaEngineModule_shaka(mod: any) {
       }
     }
   });
+}
+
+export let sourceBufferMapKey_shaka: string | null = null;
+
+export function findSourceBufferMapKey_shaka() {
+  if (sourceBufferMapKey_shaka) {
+    return sourceBufferMapKey_shaka;
+  }
+  for (let key of Object.keys(w.__audioExtShakaMSE)) {
+    const val = w.__audioExtShakaMSE[key];
+    if (!(val instanceof Map)) continue;
+    const buffer = val.get("audio");
+    if (!(buffer instanceof SourceBuffer)) continue;
+    return sourceBufferMapKey_shaka = key;
+  }
+  return null;
+}
+
+export function patchBuffer_postVideoLoad_shaka() {
+  const key = findSourceBufferMapKey_shaka();
+  if (!key) {
+    log("could not find SourceBuffer map key for MSE");
+    return;
+  }
+  const buffer: SourceBuffer = w.__audioExtShakaMSE[key].get("audio");
+  if (!buffer) {
+    log("could not find audio SourceBuffer for MSE");
+    return;
+  }
+  if ((buffer as any)["timestampOffset_real"]) return; // already patched
+  const proto = Object.getPrototypeOf(buffer);
+  const descriptor = Object.getOwnPropertyDescriptor(proto, "timestampOffset");
+  log(buffer, proto, descriptor);
+  const realGet = descriptor?.get;
+  const realSet = descriptor?.set;
+
+  if (!(realGet && realSet)) {
+    log("failed to find get/set descriptors for SourceBuffer.timestampOffset");
+    return;
+  }
+
+  // this is only actually read by Shaka
+  // so we take our offset out of the equation when Shaka is viewing
+  // but in reality the offset is still being applied
+  Object.defineProperty(buffer, "timestampOffset", {
+    configurable: true,
+    get() {
+      debug(`timestampOffset.get called (offset=${getSafeOffset()})`);
+      return realGet.call(this) - getSafeOffset();
+    },
+    // this is not really necessary? i've never seen shaka set timestampOffset before
+    set(shakaValue: number) {
+      debug(`timestampOffset.set called with ${shakaValue} (offset=${getSafeOffset()})`);
+      realSet.call(this, shakaValue + getSafeOffset());
+    },
+  });
+
+  // so we can still directly set the value
+  Object.defineProperty(buffer, "timestampOffset_real", {
+    configurable: true,
+    get() {
+      return realGet();
+    },
+    set(value: number) {
+      realSet.call(this, value);
+    },
+  });
+  log("patched SourceBuffer.timestampOffset");
 }
