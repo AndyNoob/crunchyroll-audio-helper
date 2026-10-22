@@ -9,7 +9,8 @@
   "scripts": {
     "build": "vite build && BROWSER=chrome vite build && npm run build:tamper",
     "build:tamper": "node scripts/build-tamper.js",
-    "build:icons": "node scripts/build-icons.js"
+    "build:icons": "node scripts/build-icons.js",
+    "build-for-amo": "BROWSER=firefox vite build"
   },
   "dependencies": {
     "webextension-polyfill": "^0.12.0"
