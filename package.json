@@ -7,7 +7,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "vite build && BROWSER=chrome vite build && npm run build:tamper",
+    "build": "BROWSER=firefox vite build && BROWSER=chrome vite build && npm run build:tamper",
     "build:tamper": "node scripts/build-tamper.js",
     "build:icons": "node scripts/build-icons.js",
     "build-for-amo": "BROWSER=firefox vite build"
