@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name           Crunchyroll Audio Helper
 // @namespace      https://github.com/AndyNoob
-// @version        0.3.0
+// @version        0.4.0
 // @author         AndyNoob
 // @description    A helper extension/userscript to add offset to audio on the Crunchyroll streaming service.
 // @license        MIT
@@ -441,8 +441,8 @@ var _ = (function(exports) {
 	//#endregion
 	//#region src/index.ts
 	var w = window;
-	var version = "0.3.0";
-	var isShaka = !w["webpackChunkbitmovin_player"];
+	var version = "0.4.0";
+	var isShaka = false;
 	var MAX_OFFSET = 15;
 	var CHUNK_NAME_BITMOVIN = "webpackChunkbitmovin_player";
 	var CHUNK_NAME_SHAKA = "webpackChunk_N_E";
@@ -520,12 +520,28 @@ var _ = (function(exports) {
 		]);
 	}
 	function tryPatch() {
-		const require = w[`__require_${w["SubtitlesOctopus"] ? CHUNK_NAME_SHAKA : CHUNK_NAME_BITMOVIN}`];
-		if (!require) return false;
 		try {
-			if (w["SubtitlesOctopus"]) return patchMediaEngineModule_shaka(findMediaEngineModule_shaka(require).mod);
-			else return patchPlayerModule_bitmovin(findPlayerModule_bitmovin(require).mod) && patchMSEWrapperModule_bitmovin(findMSEWrapperModule_bitmovin(require).mod) && patchMSERenderModule_bitmovin(findMSERendererModule_bitmovin(require).mod);
-		} catch (e) {}
+			const reqBitmovin = w[`__require_${CHUNK_NAME_BITMOVIN}`];
+			if (reqBitmovin) {
+				const player = findPlayerModule_bitmovin(reqBitmovin);
+				const wrapper = findMSEWrapperModule_bitmovin(reqBitmovin);
+				const renderer = findMSERendererModule_bitmovin(reqBitmovin);
+				if (player && wrapper && renderer) {
+					isShaka = false;
+					return patchPlayerModule_bitmovin(player.mod) && patchMSEWrapperModule_bitmovin(wrapper.mod) && patchMSERenderModule_bitmovin(renderer.mod);
+				}
+			}
+			const reqShaka = w[`__require_${CHUNK_NAME_SHAKA}`];
+			if (reqShaka) {
+				const engine = findMediaEngineModule_shaka(reqShaka);
+				if (engine) {
+					isShaka = true;
+					return patchMediaEngineModule_shaka(engine.mod);
+				}
+			}
+		} catch (e) {
+			console.error(`[audio ext v${version}] error while patching`, e);
+		}
 		return false;
 	}
 	function doHijack() {
@@ -534,28 +550,26 @@ var _ = (function(exports) {
 			return;
 		}
 		loadCurrentDelayFromCache();
-		let tries = 100;
+		let tries = 120;
 		const timer = setInterval(() => {
-			const chunkName = isShaka ? CHUNK_NAME_SHAKA : CHUNK_NAME_BITMOVIN;
-			if (!w[chunkName]) {
-				if (--tries < 0) {
-					console.error(`[audio ext v${version}] failed to locate ${chunkName}`);
-					clearInterval(timer);
-				}
-				return;
-			}
-			captureRequire(chunkName);
+			captureRequire(CHUNK_NAME_BITMOVIN);
+			captureRequire(CHUNK_NAME_SHAKA);
 			if (tryPatch()) {
-				log(`patch complete, injecting controls (offset=${w.__audioExtOffset})`);
+				log(`patch complete (${isShaka ? "shaka" : "bitmovin"}), injecting controls (offset=${w.__audioExtOffset})`);
 				clearInterval(timer);
 				tryInitControls();
 				return;
 			}
 			if (--tries < 0) {
-				console.error(`[audio ext v${version}] failed to patch ${chunkName}`);
+				console.error(`[audio ext v${version}] failed to patch player`, {
+					bitmovinChunk: !!w[CHUNK_NAME_BITMOVIN],
+					shakaChunk: !!w[CHUNK_NAME_SHAKA],
+					bitmovinRequire: !!w[`__require_${CHUNK_NAME_BITMOVIN}`],
+					shakaRequire: !!w[`__require_${CHUNK_NAME_SHAKA}`]
+				});
 				clearInterval(timer);
 			}
-		}, 50);
+		}, 250);
 	}
 	if (w.__audioExtOffset == null) w.__audioExtOffset = 0;
 	doHijack();
